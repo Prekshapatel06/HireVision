@@ -50,10 +50,9 @@ interface BackendError {
   error?: string;
 }
 
-const API_URL = (
-  process.env.NEXT_PUBLIC_API_URL ||
-  "http://localhost:5000"
-).replace(/\/+$/, "");
+import { normalizeApiUrl } from "@/lib/api";
+
+const API_URL = normalizeApiUrl();
 
 export default function SignupPage() {
   const router = useRouter();

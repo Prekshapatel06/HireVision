@@ -13,6 +13,7 @@ import {
   Download,
   Printer
 } from "lucide-react";
+import { normalizeApiUrl } from "@/lib/api";
 
 function Github({ className = "h-4 w-4" }: { className?: string }) {
   return (
@@ -53,9 +54,7 @@ export default function ResumeSharePage({ params }: PageProps) {
 
     const fetchPublicProfile = async () => {
       try {
-        const apiUrl = (
-          process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000"
-        ).replace(/\/+$/, "");
+        const apiUrl = normalizeApiUrl();
         const res = await fetch(`${apiUrl}/api/profile/public/${userId}`);
         if (!res.ok) {
           throw new Error("Unable to fetch candidate profile details. The user ID may be invalid.");

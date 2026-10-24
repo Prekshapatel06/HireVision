@@ -24,8 +24,9 @@ import {
 import RecruiterAIChatbot from "../../components/dashboard/RecruiterAIChatbot";
 import { HireVisionLogo } from "../../components/HireVisionLogo";
 
-const API_URL =
-  process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
+import { normalizeApiUrl } from "@/lib/api";
+
+const API_URL = normalizeApiUrl();
 
 function getStoredToken(): string | null {
   if (typeof window === "undefined") {

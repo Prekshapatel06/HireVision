@@ -129,9 +129,9 @@ const DEFAULT_WIDTH = 420;
 const MIN_WIDTH = 320;
 const MAX_WIDTH = 800;
 
-const API_BASE =
-  process.env.NEXT_PUBLIC_API_URL ||
-  "http://localhost:5000";
+import { normalizeApiUrl } from "@/lib/api";
+
+const API_BASE = normalizeApiUrl();
 
 const INITIAL_AGENT_MESSAGE =
   "Hello! I am your HireVision AI Agent. You can ask me about your resume, career, skills, projects, GitHub, LinkedIn, jobs, ATS, learning plans, or any other question. I will understand your request and use the appropriate specialist intelligence when needed.";

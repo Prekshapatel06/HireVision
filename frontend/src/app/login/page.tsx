@@ -58,9 +58,9 @@ class RequestTimeoutError extends Error {
   }
 }
 
-const API_URL = (
-  process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000"
-).replace(/\/+$/, "");
+import { normalizeApiUrl } from "@/lib/api";
+
+const API_URL = normalizeApiUrl();
 
 const AUTH_TOKEN_KEYS = ["token", "hirevision_token"] as const;
 const AUTH_USER_KEYS = ["user", "hirevision_user"] as const;

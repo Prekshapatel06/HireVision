@@ -42,10 +42,9 @@ import SettingsSection from "../../components/dashboard/SettingsSection";
 import LiveResumeSection from "../../components/dashboard/LiveResumeSection";
 import AICareerInsights from "../../components/dashboard/AICareerInsights";
 
-const API_URL = (
-  process.env.NEXT_PUBLIC_API_URL ||
-  "http://localhost:5000"
-).replace(/\/+$/, "");
+import { normalizeApiUrl } from "@/lib/api";
+
+const API_URL = normalizeApiUrl();
 
 const emptyProfile: Profile = {
   full_name: "",

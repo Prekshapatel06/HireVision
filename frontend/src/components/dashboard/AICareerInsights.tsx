@@ -222,9 +222,9 @@ interface PendingImport {
   };
 }
 
-const API_BASE_URL = (
-  process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000"
-).replace(/\/+$/, "");
+import { normalizeApiUrl } from "@/lib/api";
+
+const API_BASE_URL = normalizeApiUrl();
 
 const clampScore = (value: unknown): number => {
   if (value === null || value === undefined || value === "") {
