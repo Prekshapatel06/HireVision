@@ -223,8 +223,46 @@ export default function LiveResumeSection({ profile }: LiveResumeSectionProps) {
     window.print();
   };
 
-  // Helper formatting for resume items
-  const primaryEdu = profile.education?.[0] || null;
+  // Helper formatting for education items
+  const formatEducationItem = (edu: any) => {
+    const college = edu?.college_name?.trim() || "";
+    const univ = edu?.university?.trim() || "";
+    const school = edu?.school_name?.trim() || "";
+    const inst = edu?.institution?.trim() || "";
+
+    let institution = "";
+    if (college && univ) {
+      institution = college.toLowerCase() === univ.toLowerCase() ? college : `${college}, ${univ}`;
+    } else {
+      institution = college || univ || school || inst;
+    }
+
+    const degree = edu?.degree?.trim() || "";
+    const branch = edu?.branch?.trim() || edu?.field_of_study?.trim() || "";
+    const degreeBranch = degree && branch ? `${degree} in ${branch}` : (degree || branch || (edu?.type === "school" ? (edu?.board ? `High School (${edu.board})` : "High School") : ""));
+    const passingYear = edu?.college_passing_year || edu?.school_passing_year || edu?.passing_year || edu?.end_year || "";
+    const score = edu?.cgpa ? `CGPA: ${edu.cgpa}` : (edu?.percentage ? `${edu.percentage}` : "");
+
+    return {
+      institution,
+      degreeBranch,
+      passingYear,
+      score,
+      raw: edu,
+      isValid: Boolean(institution || degreeBranch)
+    };
+  };
+
+  const validExperience = (profile.experience || []).filter(
+    (exp) => exp && (exp.company?.trim() || exp.role?.trim() || exp.description?.trim())
+  );
+
+  const validInternships = (profile.internships || []).filter(
+    (intern) => intern && (intern.company?.trim() || intern.role?.trim() || intern.description?.trim())
+  );
+
+  const validEducation = (profile.education || []).map(formatEducationItem).filter(e => e.isValid);
+  const primaryEdu = validEducation[0] || null;
 
   return (
     <div className="flex flex-col lg:grid lg:grid-cols-12 gap-8 items-start">
@@ -427,11 +465,11 @@ export default function LiveResumeSection({ profile }: LiveResumeSectionProps) {
               )}
 
               {/* Experience */}
-              {profile.experience && profile.experience.length > 0 && (
+              {validExperience.length > 0 && (
                 <div className="space-y-4">
                   <h3 className="font-poppins font-extrabold text-sm text-purple-900 uppercase tracking-wider border-b border-purple-100 pb-1.5">Employment Chronology</h3>
                   <div className="space-y-4">
-                    {profile.experience.map((exp, idx) => (
+                    {validExperience.map((exp, idx) => (
                       <div key={idx} className="space-y-1.5">
                         <div className="flex justify-between items-start">
                           <div>
@@ -441,6 +479,27 @@ export default function LiveResumeSection({ profile }: LiveResumeSectionProps) {
                           <span className="text-[10px] text-slate-400 font-bold">{exp.joining_date} - {exp.ending_date || "Present"}</span>
                         </div>
                         {exp.description && <p className="text-[11px] text-slate-600 leading-relaxed font-medium">{exp.description}</p>}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Internships */}
+              {validInternships.length > 0 && (
+                <div className="space-y-4">
+                  <h3 className="font-poppins font-extrabold text-sm text-purple-900 uppercase tracking-wider border-b border-purple-100 pb-1.5">Internship Experience</h3>
+                  <div className="space-y-4">
+                    {validInternships.map((intern, idx) => (
+                      <div key={idx} className="space-y-1.5">
+                        <div className="flex justify-between items-start">
+                          <div>
+                            <h4 className="font-bold text-slate-800 text-xs">{intern.role}</h4>
+                            <p className="text-[10px] text-purple-600 font-bold">{intern.company}</p>
+                          </div>
+                          {intern.duration && <span className="text-[10px] text-slate-400 font-bold">{intern.duration}</span>}
+                        </div>
+                        {intern.description && <p className="text-[11px] text-slate-600 leading-relaxed font-medium">{intern.description}</p>}
                       </div>
                     ))}
                   </div>
@@ -475,19 +534,22 @@ export default function LiveResumeSection({ profile }: LiveResumeSectionProps) {
               )}
 
               {/* Education */}
-              {primaryEdu && (
+              {validEducation.length > 0 && (
                 <div className="space-y-3">
                   <h3 className="font-poppins font-extrabold text-sm text-purple-900 uppercase tracking-wider border-b border-purple-100 pb-1.5">Education</h3>
-                  <div className="flex justify-between items-start text-xs font-semibold text-slate-600 leading-relaxed">
-                    <div>
-                      <p className="font-bold text-slate-800">{primaryEdu.college_name || "College Name"}</p>
-                      <p className="text-[10px] text-slate-400 font-bold">{primaryEdu.university || "University"}</p>
-                      <p className="text-[10px] text-slate-500">{primaryEdu.degree} in {primaryEdu.branch}</p>
-                    </div>
-                    <div className="text-right">
-                      <span className="text-[10px] text-slate-400 font-bold">{primaryEdu.college_passing_year || "2026"}</span>
-                      {primaryEdu.cgpa && <p className="text-[10px] text-purple-600 font-bold mt-1">CGPA: {primaryEdu.cgpa}</p>}
-                    </div>
+                  <div className="space-y-3">
+                    {validEducation.map((edu, idx) => (
+                      <div key={idx} className="flex justify-between items-start text-xs font-semibold text-slate-600 leading-relaxed">
+                        <div>
+                          <p className="font-bold text-slate-800">{edu.institution}</p>
+                          {edu.degreeBranch && <p className="text-[10px] text-slate-500">{edu.degreeBranch}</p>}
+                        </div>
+                        <div className="text-right">
+                          {edu.passingYear && <span className="text-[10px] text-slate-400 font-bold">{edu.passingYear}</span>}
+                          {edu.score && <p className="text-[10px] text-purple-600 font-bold mt-0.5">{edu.score}</p>}
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 </div>
               )}
@@ -526,17 +588,35 @@ export default function LiveResumeSection({ profile }: LiveResumeSectionProps) {
               )}
 
               {/* Experience */}
-              {profile.experience && profile.experience.length > 0 && (
+              {validExperience.length > 0 && (
                 <div className="space-y-3">
                   <h3 className="font-black text-[11px] uppercase tracking-wider border-b border-purple-200 pb-0.5 text-purple-900">Experience</h3>
                   <div className="space-y-3">
-                    {profile.experience.map((exp, idx) => (
+                    {validExperience.map((exp, idx) => (
                       <div key={idx} className="space-y-1">
                         <div className="flex justify-between font-bold text-slate-800">
                           <span>{exp.role.toUpperCase()} - {exp.company.toUpperCase()}</span>
                           <span>{exp.joining_date} - {exp.ending_date || "PRESENT"}</span>
                         </div>
                         {exp.description && <p className="leading-relaxed text-slate-700 font-medium">{exp.description}</p>}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Internships */}
+              {validInternships.length > 0 && (
+                <div className="space-y-3">
+                  <h3 className="font-black text-[11px] uppercase tracking-wider border-b border-purple-200 pb-0.5 text-purple-900">Internship Experience</h3>
+                  <div className="space-y-3">
+                    {validInternships.map((intern, idx) => (
+                      <div key={idx} className="space-y-1">
+                        <div className="flex justify-between font-bold text-slate-800">
+                          <span>{intern.role.toUpperCase()} - {intern.company.toUpperCase()}</span>
+                          {intern.duration && <span>{intern.duration.toUpperCase()}</span>}
+                        </div>
+                        {intern.description && <p className="leading-relaxed text-slate-700 font-medium">{intern.description}</p>}
                       </div>
                     ))}
                   </div>
@@ -563,14 +643,20 @@ export default function LiveResumeSection({ profile }: LiveResumeSectionProps) {
               )}
 
               {/* Education */}
-              {primaryEdu && (
+              {validEducation.length > 0 && (
                 <div className="space-y-2">
                   <h3 className="font-black text-[11px] uppercase tracking-wider border-b border-purple-200 pb-0.5 text-purple-900">Education</h3>
-                  <div className="flex justify-between font-bold text-slate-800">
-                    <span>{primaryEdu.college_name.toUpperCase()} - {primaryEdu.degree.toUpperCase()}</span>
-                    <span>{primaryEdu.college_passing_year}</span>
+                  <div className="space-y-2">
+                    {validEducation.map((edu, idx) => (
+                      <div key={idx} className="space-y-0.5">
+                        <div className="flex justify-between font-bold text-slate-800">
+                          <span>{edu.institution.toUpperCase()}{edu.degreeBranch ? ` - ${edu.degreeBranch.toUpperCase()}` : ""}</span>
+                          {edu.passingYear && <span>{edu.passingYear}</span>}
+                        </div>
+                        {edu.score && <p className="text-slate-700 font-semibold font-mono">{edu.score}</p>}
+                      </div>
+                    ))}
                   </div>
-                  <p className="text-slate-700 font-semibold font-mono">CGPA: {primaryEdu.cgpa}</p>
                 </div>
               )}
             </div>
@@ -627,11 +713,11 @@ export default function LiveResumeSection({ profile }: LiveResumeSectionProps) {
               )}
 
               {/* Chronology at the bottom */}
-              {profile.experience && profile.experience.length > 0 && (
+              {validExperience.length > 0 && (
                 <div className="space-y-3">
                   <h3 className="font-poppins font-extrabold text-xs text-slate-800 uppercase tracking-wider block">Professional Chronology</h3>
                   <div className="space-y-2">
-                    {profile.experience.map((exp, idx) => (
+                    {validExperience.map((exp, idx) => (
                       <div key={idx} className="flex justify-between items-center text-xs font-semibold text-slate-600">
                         <span>{exp.role} at <span className="font-bold text-slate-800">{exp.company}</span></span>
                         <span className="text-[10px] text-slate-400 font-bold">{exp.joining_date} - {exp.ending_date || "Present"}</span>
@@ -641,11 +727,30 @@ export default function LiveResumeSection({ profile }: LiveResumeSectionProps) {
                 </div>
               )}
 
+              {/* Internships */}
+              {validInternships.length > 0 && (
+                <div className="space-y-3">
+                  <h3 className="font-poppins font-extrabold text-xs text-slate-800 uppercase tracking-wider block">Internship Experience</h3>
+                  <div className="space-y-2">
+                    {validInternships.map((intern, idx) => (
+                      <div key={idx} className="flex justify-between items-center text-xs font-semibold text-slate-600">
+                        <span>{intern.role} at <span className="font-bold text-purple-600">{intern.company}</span></span>
+                        {intern.duration && <span className="text-[10px] text-slate-400 font-bold">{intern.duration}</span>}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               {/* Education */}
-              {primaryEdu && (
-                <div className="border-t border-purple-100 pt-4 text-xs font-semibold text-slate-600">
-                  <p>Degree: <span className="font-bold text-slate-800">{primaryEdu.degree} in {primaryEdu.branch}</span> ({primaryEdu.college_passing_year})</p>
-                  <p className="text-[10px] text-slate-400 font-bold">{primaryEdu.college_name}</p>
+              {validEducation.length > 0 && (
+                <div className="border-t border-purple-100 pt-4 text-xs font-semibold text-slate-600 space-y-1.5">
+                  {validEducation.map((edu, idx) => (
+                    <div key={idx}>
+                      <p><span className="font-bold text-slate-800">{edu.institution}</span>{edu.degreeBranch ? ` — ${edu.degreeBranch}` : ""}{edu.passingYear ? ` (${edu.passingYear})` : ""}</p>
+                      {edu.score && <p className="text-[10px] text-purple-600 font-semibold">{edu.score}</p>}
+                    </div>
+                  ))}
                 </div>
               )}
             </div>
@@ -701,12 +806,17 @@ export default function LiveResumeSection({ profile }: LiveResumeSectionProps) {
                 </div>
 
                 {/* Education at bottom */}
-                {primaryEdu && (
-                  <div className="border-t border-purple-800 pt-4 text-[9.5px]">
+                {validEducation.length > 0 && (
+                  <div className="border-t border-purple-800 pt-4 text-[9.5px] space-y-2">
                     <h3 className="font-bold text-white uppercase tracking-wider text-[9px] mb-1.5">Education</h3>
-                    <p className="font-bold text-purple-100">{primaryEdu.degree}</p>
-                    <p className="text-purple-300">{primaryEdu.college_name}</p>
-                    <p className="text-purple-300 font-bold mt-1">Passing: {primaryEdu.college_passing_year}</p>
+                    {validEducation.map((edu, idx) => (
+                      <div key={idx} className="space-y-0.5">
+                        <p className="font-bold text-purple-100">{edu.institution}</p>
+                        {edu.degreeBranch && <p className="text-purple-300">{edu.degreeBranch}</p>}
+                        {edu.passingYear && <p className="text-purple-300 font-bold mt-0.5">Passing: {edu.passingYear}</p>}
+                        {edu.score && <p className="text-purple-200">{edu.score}</p>}
+                      </div>
+                    ))}
                   </div>
                 )}
 
@@ -724,11 +834,11 @@ export default function LiveResumeSection({ profile }: LiveResumeSectionProps) {
                 )}
 
                 {/* Experience timelines */}
-                {profile.experience && profile.experience.length > 0 && (
+                {validExperience.length > 0 && (
                   <div className="space-y-4">
                     <h3 className="font-poppins font-black text-purple-900 uppercase tracking-wider border-b border-purple-100 pb-1.5">Employment Timeline</h3>
                     <div className="space-y-4 relative border-l border-purple-200 pl-4.5 ml-1">
-                      {profile.experience.map((exp, idx) => (
+                      {validExperience.map((exp, idx) => (
                         <div key={idx} className="relative space-y-1">
                           {/* Timeline dot */}
                           <span className="absolute -left-6 top-1 w-2.5 h-2.5 bg-purple-600 rounded-full border-2 border-white ring-4 ring-purple-50" />
@@ -740,6 +850,28 @@ export default function LiveResumeSection({ profile }: LiveResumeSectionProps) {
                             <span className="text-[9.5px] text-purple-600 font-bold">{exp.joining_date} - {exp.ending_date || "Present"}</span>
                           </div>
                           {exp.description && <p className="text-[11px] text-slate-600 leading-relaxed font-medium">{exp.description}</p>}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Internship timelines */}
+                {validInternships.length > 0 && (
+                  <div className="space-y-4">
+                    <h3 className="font-poppins font-black text-purple-900 uppercase tracking-wider border-b border-purple-100 pb-1.5">Internship Experience</h3>
+                    <div className="space-y-4 relative border-l border-purple-200 pl-4.5 ml-1">
+                      {validInternships.map((intern, idx) => (
+                        <div key={idx} className="relative space-y-1">
+                          <span className="absolute -left-6 top-1 w-2.5 h-2.5 bg-purple-600 rounded-full border-2 border-white ring-4 ring-purple-50" />
+                          <div className="flex justify-between items-start">
+                            <div>
+                              <h4 className="font-bold text-slate-800 text-xs">{intern.role}</h4>
+                              <span className="text-[10px] text-purple-600 font-bold">{intern.company}</span>
+                            </div>
+                            {intern.duration && <span className="text-[9.5px] text-purple-600 font-bold">{intern.duration}</span>}
+                          </div>
+                          {intern.description && <p className="text-[11px] text-slate-600 leading-relaxed font-medium">{intern.description}</p>}
                         </div>
                       ))}
                     </div>

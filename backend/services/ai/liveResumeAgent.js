@@ -95,6 +95,21 @@ function getExperienceCompany(item) {
   return cleanText(item?.company || item?.organization || item?.employer);
 }
 
+function getEducationInstitution(item) {
+  const college = cleanText(item?.college_name);
+  const univ = cleanText(item?.university);
+  const school = cleanText(item?.school_name);
+  const inst = cleanText(item?.institution);
+
+  if (college && univ) {
+    if (college.toLowerCase() === univ.toLowerCase()) {
+      return college;
+    }
+    return `${college}, ${univ}`;
+  }
+  return college || univ || school || inst || "";
+}
+
 function buildDeterministicResume(profileInput) {
   const profile = normalizeProfile(profileInput);
 
@@ -120,8 +135,6 @@ function buildDeterministicResume(profileInput) {
 
   if (profile.career_objective) {
     sections.push(profile.career_objective);
-  } else {
-    sections.push("Professional summary is not available yet.");
   }
 
   if (profile.email || profile.phone || profile.city) {
@@ -134,182 +147,185 @@ function buildDeterministicResume(profileInput) {
     sections.push(contact.join(" • "));
   }
 
-  sections.push(
-    [
-      "## Technical Skills",
-      profile.skills.length
-        ? profile.skills.map((skill) => `- ${skill}`).join("\n")
-        : "- Not provided",
-    ].join("\n")
+  if (profile.skills.length > 0) {
+    sections.push(
+      [
+        "## Technical Skills",
+        profile.skills.map((skill) => `- ${skill}`).join("\n"),
+      ].join("\n")
+    );
+  }
+
+  const validExperience = profile.experience.filter(
+    (item) => getExperienceRole(item) || getExperienceCompany(item) || cleanText(item.description || item.summary)
   );
 
-  const allExperience = [
-    ...profile.experience.map((item) => ({
-      ...item,
-      type: "experience",
-    })),
-    ...profile.internships.map((item) => ({
-      ...item,
-      type: "internship",
-    })),
-  ];
-
-  sections.push(
-    [
-      "## Work Experience",
-      allExperience.length
-        ? allExperience
-            .map((item) => {
-              const role = getExperienceRole(item);
-              const company = getExperienceCompany(item);
-
-              const start =
-                cleanText(
-                  item.joining_date ||
-                    item.start_date ||
-                    item.startDate ||
-                    item.from
-                );
-
-              const end =
-                cleanText(
-                  item.ending_date ||
-                    item.end_date ||
-                    item.endDate ||
-                    item.to
-                );
-
-              const period =
-                start || end
-                  ? ` (${start || ""}${start || end ? " - " : ""}${end || "Present"})`
-                  : "";
-
-              const description = cleanText(
-                item.description || item.summary
-              );
-
-              const heading = [role, company ? `at ${company}` : ""]
-                .filter(Boolean)
-                .join(" ");
-
-              return [
-                `- **${heading || "Experience"}**${period}`,
-                description ? `  ${description}` : "",
-              ]
-                .filter(Boolean)
-                .join("\n");
-            })
-            .join("\n\n")
-        : "- Not provided",
-    ].join("\n")
+  const validInternships = profile.internships.filter(
+    (item) => getExperienceRole(item) || getExperienceCompany(item) || cleanText(item.description || item.summary)
   );
 
-  sections.push(
-    [
-      "## Key Projects",
-      profile.projects.length
-        ? profile.projects
-            .map((project) => {
-              const title = getProjectTitle(project) || "Project";
-              const technologies = getProjectTechnologies(project);
-              const description = cleanText(project.description);
-              const github = cleanText(
-                project.github_link || project.github || project.repository
-              );
-              const liveLink = cleanText(
-                project.live_link || project.liveUrl || project.live_demo || project.url
-              );
+  // If candidate has actual employment history:
+  if (validExperience.length > 0) {
+    sections.push(
+      [
+        "## Professional Experience",
+        validExperience
+          .map((item) => {
+            const role = getExperienceRole(item);
+            const company = getExperienceCompany(item);
+            const start = cleanText(item.joining_date || item.start_date || item.startDate || item.from);
+            const end = cleanText(item.ending_date || item.end_date || item.endDate || item.to);
+            const period = start || end ? ` (${start || ""}${start || end ? " - " : ""}${end || "Present"})` : "";
+            const description = cleanText(item.description || item.summary);
+            const heading = [role, company ? `at ${company}` : ""].filter(Boolean).join(" ");
 
-              return [
-                `- **${title}**`,
-                technologies.length
-                  ? `  - Technologies: ${technologies.join(", ")}`
-                  : "",
-                description ? `  - ${description}` : "",
-                github ? `  - GitHub: ${github}` : "",
-                liveLink ? `  - Live Demo: ${liveLink}` : "",
-              ]
-                .filter(Boolean)
-                .join("\n");
-            })
-            .join("\n\n")
-        : "- Not provided",
-    ].join("\n")
-  );
+            return [
+              `- **${heading || "Employment"}**${period}`,
+              description ? `  ${description}` : "",
+            ].filter(Boolean).join("\n");
+          })
+          .join("\n\n"),
+      ].join("\n")
+    );
+  }
 
-  sections.push(
-    [
-      "## Education",
-      profile.education.length
-        ? profile.education
-            .map((item) => {
-              const degree = cleanText(item.degree);
-              const branch = cleanText(
-                item.branch || item.field_of_study || item.specialization
-              );
-              const institution = cleanText(
-                item.college_name ||
-                  item.institution ||
-                  item.university
-              );
+  // If candidate has internship history:
+  if (validInternships.length > 0) {
+    sections.push(
+      [
+        "## Internship Experience",
+        validInternships
+          .map((item) => {
+            const role = getExperienceRole(item);
+            const company = getExperienceCompany(item);
+            const duration = cleanText(item.duration || item.joining_date || item.start_date || item.period);
+            const period = duration ? ` (${duration})` : "";
+            const description = cleanText(item.description || item.summary);
+            const heading = [role, company ? `at ${company}` : ""].filter(Boolean).join(" ");
 
-              const start = cleanText(
-                item.start_year || item.start_date
-              );
-              const end = cleanText(
+            return [
+              `- **${heading || "Internship"}**${period}`,
+              description ? `  ${description}` : "",
+            ].filter(Boolean).join("\n");
+          })
+          .join("\n\n"),
+      ].join("\n")
+    );
+  }
+
+  if (profile.projects.length > 0) {
+    sections.push(
+      [
+        "## Key Projects",
+        profile.projects
+          .map((project) => {
+            const title = getProjectTitle(project) || "Project";
+            const technologies = getProjectTechnologies(project);
+            const description = cleanText(project.description);
+            const github = cleanText(
+              project.github_link || project.github || project.repository
+            );
+            const liveLink = cleanText(
+              project.live_link || project.liveUrl || project.live_demo || project.url
+            );
+
+            return [
+              `- **${title}**`,
+              technologies.length
+                ? `  - Technologies: ${technologies.join(", ")}`
+                : "",
+              description ? `  - ${description}` : "",
+              github ? `  - GitHub: ${github}` : "",
+              liveLink ? `  - Live Demo: ${liveLink}` : "",
+            ]
+              .filter(Boolean)
+              .join("\n");
+          })
+          .join("\n\n"),
+      ].join("\n")
+    );
+  }
+
+  const validEducation = profile.education.filter((item) => {
+    return Boolean(
+      getEducationInstitution(item) ||
+      cleanText(item?.degree) ||
+      cleanText(item?.branch)
+    );
+  });
+
+  if (validEducation.length > 0) {
+    sections.push(
+      [
+        "## Education",
+        validEducation
+          .map((item) => {
+            const degree = cleanText(item.degree);
+            const branch = cleanText(
+              item.branch || item.field_of_study || item.specialization
+            );
+            const institution = getEducationInstitution(item);
+
+            const start = cleanText(item.start_year || item.start_date);
+            const end = cleanText(
+              item.college_passing_year ||
+                item.school_passing_year ||
                 item.end_year ||
-                  item.passing_year ||
-                  item.end_date
-              );
+                item.passing_year ||
+                item.end_date
+            );
+            const score = cleanText(item.cgpa ? `CGPA: ${item.cgpa}` : (item.percentage || ""));
 
-              const field = [degree, branch ? `in ${branch}` : ""]
-                .filter(Boolean)
-                .join(" ");
+            const field = [degree, branch ? `in ${branch}` : ""]
+              .filter(Boolean)
+              .join(" ");
 
-              const institutionText = institution
-                ? `, **${institution}**`
+            const institutionText = institution
+              ? `, **${institution}**`
+              : "";
+
+            const period =
+              start || end
+                ? ` (${start || ""}${start || end ? " - " : ""}${end || ""})`
                 : "";
 
-              const period =
-                start || end
-                  ? ` (${start || ""}${start || end ? " - " : ""}${end || ""})`
-                  : "";
+            const scoreText = score ? ` • ${score}` : "";
 
-              return `- **${field || "Education"}**${institutionText}${period}`;
-            })
-            .join("\n")
-        : "- Not provided",
-    ].join("\n")
-  );
+            return `- **${field || "Education"}**${institutionText}${period}${scoreText}`;
+          })
+          .join("\n"),
+      ].join("\n")
+    );
+  }
 
-  sections.push(
-    [
-      "## Certifications",
-      profile.certifications.length
-        ? profile.certifications
-            .map((item) => {
-              const name = cleanText(
-                item.certificate_name ||
-                  item.name ||
-                  item.title
-              );
+  if (profile.certifications.length > 0) {
+    sections.push(
+      [
+        "## Certifications",
+        profile.certifications
+          .map((item) => {
+            const name = cleanText(
+              item.certificate_name ||
+                item.name ||
+                item.title
+            );
 
-              const issuer = cleanText(
-                item.platform ||
-                  item.issuer ||
-                  item.organization
-              );
+            const issuer = cleanText(
+              item.platform ||
+                item.issuer ||
+                item.organization
+            );
 
-              if (name && issuer) {
-                return `- **${name}** — ${issuer}`;
-              }
+            if (name && issuer) {
+              return `- **${name}** — ${issuer}`;
+            }
 
-              return `- **${name || "Certification"}**`;
-            })
-            .join("\n")
-        : "- Not provided",
-    ].join("\n")
-  );
+            return `- **${name || "Certification"}**`;
+          })
+          .join("\n"),
+      ].join("\n")
+    );
+  }
 
   return {
     markdown: sections.join("\n\n"),
@@ -386,15 +402,11 @@ You are HireVision's Live Resume Agent.
 Your job is to generate and improve a professional, ATS-friendly resume using only verified candidate information supplied in the input.
 
 Rules:
-- Never invent facts.
-- Never invent employers, job titles, dates, education, certifications, projects, technologies, metrics, achievements, links, or responsibilities.
-- Do not convert assumptions into facts.
-- Preserve factual candidate information.
-- You may improve wording, grammar, structure, clarity, keyword placement, and professional presentation.
-- Do not add ATS scores unless explicitly requested and there is sufficient evidence for a transparent estimate.
-- Do not claim that a resume is guaranteed to pass any ATS.
-- Do not create fake quantified achievements.
-- If information is missing, leave it out or clearly identify it in missing_data.
+- Never invent facts, employers, job titles, dates, education, certifications, projects, technologies, metrics, or achievements.
+- Preserve factual candidate information. Display the exact university or college name (e.g., "P P Savani University") exactly as entered in candidate education.
+- If the candidate has no employment history, DO NOT include an Employment, Work Experience, or Employment Chronology section. Do not display empty sections, unnecessary headings, or placeholder information.
+- If the candidate has completed an internship, include that internship under an "Internship Experience" or "Professional Experience" section with company name, internship role, duration, and relevant work details.
+- Only include sections that contain valid, verified candidate data. Do not output "- Not provided" or missing placeholders in the resume markdown.
 - Keep project names, company names, institutions, dates, and technologies faithful to the supplied data.
 - Use professional resume language.
 - Return only valid JSON.
@@ -524,10 +536,7 @@ function buildResumeContext(profileInput) {
       technologies: getProjectTechnologies(project),
       description: cleanText(project.description),
     })),
-    experience: [
-      ...profile.experience,
-      ...profile.internships,
-    ].map((item) => ({
+    experience: profile.experience.map((item) => ({
       company: getExperienceCompany(item),
       role: getExperienceRole(item),
       description: cleanText(item.description || item.summary),
@@ -538,7 +547,25 @@ function buildResumeContext(profileInput) {
         item.ending_date || item.end_date || item.endDate
       ),
     })),
-    education: profile.education,
+    internships: profile.internships.map((item) => ({
+      company: getExperienceCompany(item),
+      role: getExperienceRole(item),
+      duration: cleanText(item.duration),
+      description: cleanText(item.description || item.summary),
+    })),
+    education: profile.education.map((item) => ({
+      institution: getEducationInstitution(item),
+      degree: cleanText(item.degree),
+      branch: cleanText(item.branch || item.field_of_study),
+      passing_year: cleanText(
+        item.college_passing_year ||
+          item.school_passing_year ||
+          item.passing_year ||
+          item.end_year
+      ),
+      cgpa: cleanText(item.cgpa),
+      percentage: cleanText(item.percentage),
+    })),
     certifications: profile.certifications,
   };
 }
