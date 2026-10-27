@@ -121,6 +121,7 @@ interface ProjectItem {
   careerRelevance?: number;
   description_quality?: number;
   descriptionQuality?: number;
+  status?: string;
   suggestions?: string[];
 }
 
@@ -762,6 +763,8 @@ const normalizeAnalysisData = (
           description_quality:
             item.description_quality ??
             item.descriptionQuality,
+          status:
+            (item as any).status,
         }))
       : [],
     career: Array.isArray(data.career)
@@ -3064,10 +3067,20 @@ export default function AICareerInsights({
                   )}
                 </div>
                                 <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-                  <h3 className="flex items-center gap-2 text-sm font-extrabold text-slate-900">
-                    <Sparkles className="h-5 w-5 text-purple-600" />
-                    Project Quality Analytics
-                  </h3>
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                    <div>
+                      <h3 className="flex items-center gap-2 text-sm font-extrabold text-slate-900">
+                        <Sparkles className="h-5 w-5 text-purple-600" />
+                        Project Quality Analytics
+                      </h3>
+                      <p className="mt-0.5 text-[11px] font-medium text-slate-500">
+                        Evaluates architecture depth, verifiable code evidence, and career impact.
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-2 text-[10px] font-bold text-purple-700 bg-purple-50 px-3 py-1.5 rounded-full border border-purple-100 shrink-0">
+                      <span>Formula: 40% Depth + 35% Relevance + 25% Description</span>
+                    </div>
+                  </div>
 
                   <div className="mt-5 space-y-4">
                     {(projects || []).map(
@@ -3108,6 +3121,13 @@ export default function AICareerInsights({
                             "descriptionQuality"
                           );
 
+                        const projectStatus =
+                          project.status ||
+                          (qualityScore === 0 ? "Insufficient Data" : null);
+
+                        const hasGroundedScore =
+                          qualityScore !== undefined && qualityScore > 0;
+
                         return (
                           <div
                             key={`${projectTitle}-${index}`}
@@ -3119,14 +3139,13 @@ export default function AICareerInsights({
                                   "Untitled Project"}
                               </h4>
 
-                              {qualityScore !==
-                                undefined && (
+                              {hasGroundedScore ? (
                                 <span className="shrink-0 rounded-full border border-purple-100 bg-purple-50 px-2.5 py-1 text-[10px] font-bold text-purple-700">
-                                  Quality:{" "}
-                                  {
-                                    qualityScore
-                                  }
-                                  %
+                                  Quality: {qualityScore}%
+                                </span>
+                              ) : (
+                                <span className="shrink-0 rounded-full border border-amber-200 bg-amber-50 px-2.5 py-1 text-[10px] font-bold text-amber-700">
+                                  {projectStatus || "Insufficient Data"}
                                 </span>
                               )}
                             </div>
@@ -3134,55 +3153,43 @@ export default function AICareerInsights({
                             <div className="mt-4 grid grid-cols-3 gap-3">
                               {[
                                 {
-                                  label:
-                                    "Tech Depth",
-                                  value:
-                                    technicalDepth,
+                                  label: "Tech Depth",
+                                  value: technicalDepth,
                                 },
                                 {
-                                  label:
-                                    "Relevance",
-                                  value:
-                                    careerRelevance,
+                                  label: "Relevance",
+                                  value: careerRelevance,
                                 },
                                 {
-                                  label:
-                                    "Description",
-                                  value:
-                                    descriptionQuality,
+                                  label: "Description",
+                                  value: descriptionQuality,
                                 },
-                              ].map(
-                                (
-                                  item
-                                ) => (
-                                  <div
-                                    key={
-                                      item.label
-                                    }
-                                    className="rounded-xl border border-slate-200 bg-white p-3"
-                                  >
-                                    <span className="block text-[9px] font-bold text-slate-400">
-                                      {
-                                        item.label
-                                      }
-                                    </span>
+                              ].map((item) => (
+                                <div
+                                  key={item.label}
+                                  className="rounded-xl border border-slate-200 bg-white p-3"
+                                >
+                                  <span className="block text-[9px] font-bold text-slate-400">
+                                    {item.label}
+                                  </span>
 
-                                    <span className="mt-1 block text-sm font-extrabold text-slate-700">
-                                      {item.value !==
-                                      undefined
-                                        ? `${item.value}%`
-                                        : "—"}
-                                    </span>
-                                  </div>
-                                )
-                              )}
+                                  <span className="mt-1 block text-sm font-extrabold text-slate-700">
+                                    {item.value !== undefined && item.value > 0 ? (
+                                      `${item.value}%`
+                                    ) : (
+                                      <span className="text-[10px] font-semibold text-amber-600">
+                                        {projectStatus || "Insufficient Data"}
+                                      </span>
+                                    )}
+                                  </span>
+                                </div>
+                              ))}
                             </div>
 
                             {(
                               project.suggestions ||
                               []
-                            ).length >
-                              0 && (
+                            ).length > 0 && (
                               <div className="mt-4 border-t border-slate-200 pt-4">
                                 <span className="mb-2 block text-[9px] font-bold uppercase tracking-wider text-slate-400">
                                   Optimization Suggestions
@@ -3199,12 +3206,10 @@ export default function AICareerInsights({
                                     ) => (
                                       <li
                                         key={`${suggestion}-${suggestionIndex}`}
-                                        className="flex gap-2 text-[11px] font-medium leading-relaxed text-slate-500"
+                                        className="flex gap-2 text-[11px] font-medium leading-relaxed text-slate-600"
                                       >
                                         <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-purple-500" />
-                                        {
-                                          suggestion
-                                        }
+                                        {suggestion}
                                       </li>
                                     )
                                   )}

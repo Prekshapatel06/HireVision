@@ -246,70 +246,94 @@ function calculateLocalProjectScore(project) {
   const norm = normalizeProject(project);
   if (!norm || !norm.project_title) return null;
 
-  // 1. Technical Depth (0 - 100)
-  // Evaluates tech stack, architecture, repository/demo presence, complexity
-  let techScore = 0;
+  const desc = (norm.description || "").trim();
   const techCount = Array.isArray(norm.technologies) ? norm.technologies.length : 0;
+  const hasLinks = Boolean(norm.github_url || norm.live_url);
+
+  // Insufficient Data detection: candidate supplied title with no technical details
+  if (desc.length < 25 && techCount === 0 && !hasLinks) {
+    return {
+      project_title: norm.project_title,
+      quality_score: null,
+      technical_depth: null,
+      career_relevance: null,
+      description_quality: null,
+      status: "Insufficient Data",
+      suggestions: [
+        `Provide a detailed technical description for "${norm.project_title}" explaining the problem it solves and its architecture.`,
+        `Specify all programming languages, frameworks, libraries, and databases used in "${norm.project_title}".`,
+        `Add a public GitHub repository link or live demo URL for "${norm.project_title}" to demonstrate real-world implementation.`
+      ]
+    };
+  }
+
+  // 1. Technical Depth (0 - 100)
+  // Evaluates tech stack variety, architecture, repository presence, live demo, complexity
+  let techScore = 0;
   if (techCount >= 4) techScore += 35;
   else if (techCount >= 2) techScore += 25;
   else if (techCount === 1) techScore += 15;
 
   if (norm.github_url) techScore += 25;
   if (norm.live_url) techScore += 15;
-  if (norm.architecture || norm.role || (norm.description && norm.description.length > 200)) techScore += 15;
+  if (norm.architecture || norm.role || desc.length > 200) techScore += 15;
   if (Array.isArray(norm.features) && norm.features.length > 0) techScore += 10;
-  techScore = Math.max(30, Math.min(95, techScore));
+  techScore = Math.max(25, Math.min(95, techScore));
 
   // 2. Career Relevance (0 - 100)
   // Evaluates industry relevance of tech stack, deployment, and practical utility
-  let relScore = 45; // baseline for valid software engineering project
+  let relScore = 40; // baseline for valid software engineering project
   const techStr = (Array.isArray(norm.technologies) ? norm.technologies.join(" ") : String(norm.technologies || "")).toLowerCase();
   const modernTech = ["react", "next", "node", "express", "python", "streamlit", "sql", "postgres", "ai", "machine learning", "typescript", "javascript", "docker", "aws", "tailwind", "fastapi"];
-  const matchedTech = modernTech.filter(t => techStr.includes(t) || norm.description.toLowerCase().includes(t));
-  relScore += Math.min(35, matchedTech.length * 10);
+  const matchedTech = modernTech.filter(t => techStr.includes(t) || desc.toLowerCase().includes(t));
+  relScore += Math.min(35, matchedTech.length * 8);
   if (norm.live_url || norm.github_url) relScore += 15;
-  if (norm.description && (norm.description.toLowerCase().includes("user") || norm.description.toLowerCase().includes("system") || norm.description.toLowerCase().includes("dashboard") || norm.description.toLowerCase().includes("platform"))) relScore += 10;
-  relScore = Math.max(35, Math.min(95, relScore));
+  if (desc.toLowerCase().includes("user") || desc.toLowerCase().includes("system") || desc.toLowerCase().includes("dashboard") || desc.toLowerCase().includes("platform") || desc.toLowerCase().includes("resume")) relScore += 10;
+  relScore = Math.max(30, Math.min(95, relScore));
 
   // 3. Description Quality (0 - 100)
   // Evaluates problem statement, features, structure, clarity
-  let descScore = 25;
-  const descLen = norm.description.trim().length;
+  let descScore = 20;
+  const descLen = desc.length;
   if (descLen > 300) descScore += 40;
   else if (descLen > 150) descScore += 25;
   else if (descLen > 50) descScore += 15;
 
-  if (norm.description.includes("•") || norm.description.includes("-") || norm.description.includes("\n\n")) descScore += 20;
-  if (norm.outcome || norm.description.toLowerCase().includes("impact") || norm.description.toLowerCase().includes("result") || norm.description.toLowerCase().includes("help")) descScore += 20;
-  descScore = Math.max(30, Math.min(95, descScore));
+  if (desc.includes("•") || desc.includes("-") || desc.includes("\n\n")) descScore += 20;
+  if (norm.outcome || desc.toLowerCase().includes("impact") || desc.toLowerCase().includes("result") || desc.toLowerCase().includes("help") || desc.toLowerCase().includes("monitor") || desc.toLowerCase().includes("detect")) descScore += 20;
+  descScore = Math.max(25, Math.min(95, descScore));
 
-  // Overall Quality: weighted combination
+  // Overall Quality: weighted combination (Tech Depth 40%, Relevance 35%, Description 25%)
   const overallQuality = Math.round(0.40 * techScore + 0.35 * relScore + 0.25 * descScore);
 
   // Suggestions based on actual project evidence:
   const suggestions = [];
   if (!norm.github_url && !norm.live_url) {
-    suggestions.push("Add a verifiable GitHub repository link or live demo URL to demonstrate implementation.");
+    suggestions.push(`Add a verifiable GitHub repository link or live demo URL for "${norm.project_title}" to prove practical implementation.`);
   } else if (!norm.github_url) {
-    suggestions.push("Link the public GitHub repository to showcase code architecture and git commits.");
+    suggestions.push(`Link the public GitHub repository for "${norm.project_title}" so recruiters can inspect code structure and git commits.`);
   } else if (!norm.live_url) {
-    suggestions.push("Deploy a live demonstration link for recruiters to interact with the project.");
+    suggestions.push(`Deploy a live demonstration link for "${norm.project_title}" allowing recruiters to interact with the project.`);
   }
 
   if (techCount < 3) {
-    suggestions.push("Document all specific libraries, frameworks, APIs, and database tools used in the project.");
+    suggestions.push(`Document all specific libraries, frameworks, APIs, and database tools used in "${norm.project_title}".`);
   }
 
   if (descLen < 200) {
-    suggestions.push("Expand the project description with a clear problem statement, technical challenges overcome, and candidate contributions.");
+    suggestions.push(`Expand the description for "${norm.project_title}" with a clear problem statement, technical challenges overcome, and candidate contributions.`);
   }
 
-  if (!norm.description.toLowerCase().includes("result") && !norm.description.toLowerCase().includes("user") && !norm.outcome) {
-    suggestions.push("Highlight measurable impact, performance optimizations, or user adoption metrics.");
+  if (techStr.includes("ai") || desc.toLowerCase().includes("ai") || desc.toLowerCase().includes("chatbot") || desc.toLowerCase().includes("intelligence")) {
+    suggestions.push(`Detail the AI model architecture, prompt engineering techniques, or API latency optimizations used in "${norm.project_title}".`);
+  }
+
+  if (!desc.toLowerCase().includes("result") && !desc.toLowerCase().includes("metric") && !norm.outcome) {
+    suggestions.push(`Highlight measurable impact or performance metrics for "${norm.project_title}" (e.g., response time under 200ms or resource usage reduction).`);
   }
 
   if (suggestions.length === 0) {
-    suggestions.push("Keep project documentation and tech stack updated with recent feature additions.");
+    suggestions.push(`Keep project documentation and tech stack updated for "${norm.project_title}" with recent feature additions.`);
   }
 
   return {
@@ -318,6 +342,7 @@ function calculateLocalProjectScore(project) {
     technical_depth: techScore,
     career_relevance: relScore,
     description_quality: descScore,
+    status: "Analyzed",
     suggestions: suggestions.slice(0, 3)
   };
 }
@@ -378,10 +403,18 @@ function normalizeProjectAnalysis(
         return null;
       }
 
-      const techDepth = normalizeNumber(project.technical_depth);
-      const careerRel = normalizeNumber(project.career_relevance);
-      const descQual = normalizeNumber(project.description_quality);
-      const qualityScore = normalizeNumber(project.quality_score) || Math.round(0.4 * techDepth + 0.35 * careerRel + 0.25 * descQual);
+      let techDepth = normalizeNumber(project.technical_depth);
+      let careerRel = normalizeNumber(project.career_relevance);
+      let descQual = normalizeNumber(project.description_quality);
+      let qualityScore = normalizeNumber(project.quality_score) || Math.round(0.4 * techDepth + 0.35 * careerRel + 0.25 * descQual);
+
+      // Never assign 0% if the candidate provided actual technical project data
+      if (qualityScore === 0) {
+        const local = calculateLocalProjectScore(original);
+        if (local) {
+          return local;
+        }
+      }
 
       return {
         project_title:
@@ -390,6 +423,7 @@ function normalizeProjectAnalysis(
         technical_depth: techDepth,
         career_relevance: careerRel,
         description_quality: descQual,
+        status: "Analyzed",
         suggestions:
           normalizeStringArray(
             project.suggestions

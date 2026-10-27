@@ -2590,6 +2590,58 @@ async function getAIAnalysis(
         ),
       ]);
 
+    // Auto-sync project analysis if cache is empty, count mismatches, or past 0% errors exist
+    let projectRows = projects.rows;
+    try {
+      const candidateProfileRes = await db.query(
+        "SELECT projects FROM profiles WHERE user_id = $1",
+        [userId]
+      );
+      const candidateProjects = candidateProfileRes.rows[0]?.projects || [];
+      const normProjects = projectAgent.normalizeProjects(candidateProjects);
+
+      const needsProjectRefresh =
+        normProjects.length > 0 &&
+        (projectRows.length === 0 ||
+          projectRows.length !== normProjects.length ||
+          projectRows.some(
+            (p) =>
+              p.quality_score === 0 ||
+              p.quality_score === null ||
+              !normProjects.some(
+                (np) =>
+                  np.project_title.trim().toLowerCase() ===
+                  (p.project_title || "").trim().toLowerCase()
+              )
+          ));
+
+      if (needsProjectRefresh) {
+        const freshAnalysis = await analyzeProjects({ projects: candidateProjects });
+        if (Array.isArray(freshAnalysis) && freshAnalysis.length > 0) {
+          await db.query("DELETE FROM ai_project_analysis WHERE user_id = $1", [userId]);
+          for (const p of freshAnalysis) {
+            await db.query(
+              `INSERT INTO ai_project_analysis 
+               (user_id, project_title, quality_score, technical_depth, career_relevance, description_quality, suggestions, updated_at)
+               VALUES ($1, $2, $3, $4, $5, $6, $7, CURRENT_TIMESTAMP)`,
+              [
+                userId,
+                p.project_title,
+                p.quality_score ?? null,
+                p.technical_depth ?? null,
+                p.career_relevance ?? null,
+                p.description_quality ?? null,
+                json(p.suggestions || [])
+              ]
+            );
+          }
+          projectRows = freshAnalysis;
+        }
+      }
+    } catch (refreshErr) {
+      console.warn("[AI Controller] Project auto-sync warning:", refreshErr.message);
+    }
+
     return res.status(200).json({
       readiness:
         readiness.rows[0] ||
@@ -2603,7 +2655,7 @@ async function getAIAnalysis(
         skills.rows,
 
       projects:
-        projects.rows,
+        projectRows,
 
       career:
         career.rows,

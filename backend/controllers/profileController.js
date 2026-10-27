@@ -1,4 +1,5 @@
 const db = require('../config/db');
+const projectAgent = require('../services/ai/projectAgent');
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
@@ -143,6 +144,34 @@ exports.updateProfile = async (req, res) => {
       "UPDATE users SET last_login_at = CURRENT_TIMESTAMP, last_login_role = 'candidate' WHERE id = $1",
       [req.user.id]
     );
+
+    // Refresh project analysis immediately to eliminate stale cache
+    if (projects !== undefined) {
+      try {
+        const freshProjects = await projectAgent.analyzeProjects(updateResult.rows[0]);
+        if (Array.isArray(freshProjects) && freshProjects.length > 0) {
+          await db.query("DELETE FROM ai_project_analysis WHERE user_id = $1", [req.user.id]);
+          for (const proj of freshProjects) {
+            await db.query(
+              `INSERT INTO ai_project_analysis 
+               (user_id, project_title, quality_score, technical_depth, career_relevance, description_quality, suggestions, updated_at)
+               VALUES ($1, $2, $3, $4, $5, $6, $7, CURRENT_TIMESTAMP)`,
+              [
+                req.user.id,
+                proj.project_title,
+                proj.quality_score ?? null,
+                proj.technical_depth ?? null,
+                proj.career_relevance ?? null,
+                proj.description_quality ?? null,
+                JSON.stringify(proj.suggestions || [])
+              ]
+            );
+          }
+        }
+      } catch (projErr) {
+        console.warn("[Profile Controller] Auto project analysis update warning:", projErr.message);
+      }
+    }
 
     return res.status(200).json({
       message: 'Profile updated successfully',
