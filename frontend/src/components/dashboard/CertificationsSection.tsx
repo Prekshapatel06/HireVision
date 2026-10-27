@@ -62,6 +62,29 @@ export default function CertificationsSection({
     reader.readAsDataURL(file);
   };
 
+  const openCertificatePdf = (pdfData: string) => {
+    if (!pdfData) return;
+    try {
+      if (pdfData.startsWith("http://") || pdfData.startsWith("https://")) {
+        window.open(pdfData, "_blank");
+        return;
+      }
+      const base64Data = pdfData.replace(/^data:application\/pdf;base64,/, "");
+      const byteCharacters = atob(base64Data);
+      const byteNumbers = new Array(byteCharacters.length);
+      for (let i = 0; i < byteCharacters.length; i++) {
+        byteNumbers[i] = byteCharacters.charCodeAt(i);
+      }
+      const byteArray = new Uint8Array(byteNumbers);
+      const blob = new Blob([byteArray], { type: "application/pdf" });
+      const blobUrl = URL.createObjectURL(blob);
+      window.open(blobUrl, "_blank");
+    } catch (err) {
+      console.error("Error opening certificate PDF:", err);
+      window.open(pdfData, "_blank");
+    }
+  };
+
   return (
     <div className="premium-card p-6 md:p-8 bg-white space-y-6">
       {profile.certifications.map((cert, index) => {
@@ -199,16 +222,15 @@ export default function CertificationsSection({
                   </label>
 
                   {certificatePdf && (
-                    <a
-                      href={certificatePdf}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="px-4 py-2.5 bg-violet-50 hover:bg-violet-100 border border-violet-100 rounded-[10px] text-xs font-bold text-violet-600 flex items-center gap-2 transition-colors"
+                    <button
+                      type="button"
+                      onClick={() => openCertificatePdf(certificatePdf)}
+                      className="px-4 py-2.5 bg-violet-50 hover:bg-violet-100 border border-violet-200 rounded-[10px] text-xs font-bold text-violet-700 flex items-center gap-2 transition-colors cursor-pointer"
                     >
-                      <FileText className="h-4 w-4" />
+                      <FileText className="h-4 w-4 text-violet-600" />
                       View Certificate PDF
                       <ExternalLink className="h-3.5 w-3.5" />
-                    </a>
+                    </button>
                   )}
                 </div>
 

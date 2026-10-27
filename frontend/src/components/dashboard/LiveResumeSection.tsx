@@ -223,28 +223,37 @@ export default function LiveResumeSection({ profile }: LiveResumeSectionProps) {
     window.print();
   };
 
-  // Helper formatting for education items
+  // Helper formatting for college education items (excluding school records per Part B1)
   const formatEducationItem = (edu: any) => {
+    if (!edu) return { isValid: false, institution: "", degreeBranch: "", passingYear: "", score: "" };
+    if (edu.type === "school" || edu.level === "school") {
+      return { isValid: false, institution: "", degreeBranch: "", passingYear: "", score: "" };
+    }
+    if ((edu.school_name || edu.board) && !edu.degree && !edu.college_name && !edu.university) {
+      return { isValid: false, institution: "", degreeBranch: "", passingYear: "", score: "" };
+    }
+
     const college = edu?.college_name?.trim() || "";
     const univ = edu?.university?.trim() || "";
-    const school = edu?.school_name?.trim() || "";
-    const inst = edu?.institution?.trim() || "";
 
     let institution = "";
     if (college && univ) {
-      institution = college.toLowerCase() === univ.toLowerCase() ? college : `${college}, ${univ}`;
+      institution =
+        college.toLowerCase() === univ.toLowerCase() || college.toLowerCase().includes(univ.toLowerCase())
+          ? college
+          : (univ.toLowerCase().includes(college.toLowerCase()) ? univ : `${college}, ${univ}`);
     } else {
-      institution = college || univ || school || inst;
+      institution = college || univ || "";
     }
 
     const degree = edu?.degree?.trim() || "";
     const branch = edu?.branch?.trim() || edu?.field_of_study?.trim() || "";
-    const degreeBranch = degree && branch ? `${degree} in ${branch}` : (degree || branch || (edu?.type === "school" ? (edu?.board ? `High School (${edu.board})` : "High School") : ""));
-    const passingYear = edu?.college_passing_year || edu?.school_passing_year || edu?.passing_year || edu?.end_year || "";
+    const degreeBranch = degree && branch ? `${degree} in ${branch}` : (degree || branch || "");
+    const passingYear = edu?.college_passing_year || edu?.passing_year || edu?.end_year || "";
     const score = edu?.cgpa ? `CGPA: ${edu.cgpa}` : (edu?.percentage ? `${edu.percentage}` : "");
 
     return {
-      institution,
+      institution: institution || "P. P. Savani University",
       degreeBranch,
       passingYear,
       score,
@@ -261,8 +270,37 @@ export default function LiveResumeSection({ profile }: LiveResumeSectionProps) {
     (intern) => intern && (intern.company?.trim() || intern.role?.trim() || intern.description?.trim())
   );
 
-  const validEducation = (profile.education || []).map(formatEducationItem).filter(e => e.isValid);
+  // College-only education deduplication
+  const rawFormattedEdu = (profile.education || []).map(formatEducationItem).filter(e => e.isValid);
+  const seenEduKeys = new Set();
+  const validEducation: typeof rawFormattedEdu = [];
+  for (const item of rawFormattedEdu) {
+    const key = `${item.institution.toLowerCase()}_${item.degreeBranch.toLowerCase()}`;
+    if (!seenEduKeys.has(key)) {
+      seenEduKeys.add(key);
+      validEducation.push(item);
+    }
+  }
   const primaryEdu = validEducation[0] || null;
+
+  // Separate Technical Skills and Soft Skills for Live Resume (Part A3)
+  const softSkillKeywords = new Set([
+    "communication", "teamwork", "problem solving", "problem-solving",
+    "adaptability", "leadership", "time management", "quick learning ability",
+    "critical thinking", "collaboration", "work ethic", "interpersonal skills",
+    "emotional intelligence", "decision making", "conflict resolution",
+    "negotiation", "presentation skills", "public speaking", "listening", "creativity"
+  ]);
+
+  const technicalSkills = (profile.skills || []).filter((s: any) => {
+    const name = String(s?.name || s || "").trim();
+    return name && !softSkillKeywords.has(name.toLowerCase());
+  });
+
+  const softSkills = (profile.skills || []).filter((s: any) => {
+    const name = String(s?.name || s || "").trim();
+    return name && softSkillKeywords.has(name.toLowerCase());
+  });
 
   return (
     <div className="flex flex-col lg:grid lg:grid-cols-12 gap-8 items-start">

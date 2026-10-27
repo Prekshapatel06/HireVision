@@ -403,10 +403,10 @@ function buildLocalSkillAnalysis(normalizedProfile) {
   if (Array.isArray(rawSkills)) {
     rawSkills.forEach(s => {
       if (typeof s === "string" && s.trim()) {
-        skillsList.push({ name: s.trim() });
+        skillsList.push({ name: s.trim(), declaredLevel: "" });
       } else if (s && typeof s === "object") {
         const name = s.name || s.skill || s.title || "";
-        if (name) skillsList.push({ name, level: s.level, evidence: s.evidence });
+        if (name) skillsList.push({ name, declaredLevel: s.level || "", evidence: s.evidence });
       }
     });
   } else if (typeof rawSkills === "object") {
@@ -414,42 +414,89 @@ function buildLocalSkillAnalysis(normalizedProfile) {
       if (Array.isArray(val)) {
         val.forEach(item => {
           const name = typeof item === "string" ? item.trim() : item?.name || "";
-          if (name) skillsList.push({ name, category });
+          const declaredLevel = typeof item === "object" ? item?.level || "" : "";
+          if (name) skillsList.push({ name, category, declaredLevel });
         });
       }
     });
   }
 
-  const projectsText = JSON.stringify(normalizedProfile.projects || "").toLowerCase();
-  const certsText = JSON.stringify(normalizedProfile.certifications || "").toLowerCase();
+  const projects = Array.isArray(normalizedProfile.projects) ? normalizedProfile.projects : [];
+  const certs = Array.isArray(normalizedProfile.certifications) ? normalizedProfile.certifications : [];
+  const internships = Array.isArray(normalizedProfile.internships) ? normalizedProfile.internships : [];
+  const experiences = Array.isArray(normalizedProfile.experience) ? normalizedProfile.experience : [];
 
   return skillsList.map(skill => {
-    const lower = skill.name.toLowerCase();
-    const inProjects = projectsText.includes(lower);
-    const inCerts = certsText.includes(lower);
+    const skillName = skill.name.trim();
+    const cleanLower = skillName.toLowerCase().replace(/[^a-z0-9]/g, "");
 
-    let proficiency_score = 60;
-    let level = "Developing";
-    const evidence = ["Listed in candidate profile skills"];
+    // 1. Candidate-Declared Proficiency Level Base Score
+    let baseScore = 55;
+    const declaredLevelStr = String(skill.declaredLevel || "").trim().toLowerCase();
+    const evidence = [];
 
-    if (inProjects && inCerts) {
-      proficiency_score = 85;
-      level = "Strong";
-      evidence.push("Demonstrated in portfolio projects", "Validated by certifications");
-    } else if (inProjects) {
-      proficiency_score = 75;
-      level = "Intermediate";
-      evidence.push("Demonstrated in portfolio projects");
-    } else if (inCerts) {
-      proficiency_score = 75;
-      level = "Intermediate";
-      evidence.push("Validated by certifications");
+    if (declaredLevelStr === "expert" || declaredLevelStr === "advanced") {
+      baseScore = 78;
+      evidence.push("Declared as Expert/Advanced in candidate profile");
+    } else if (declaredLevelStr === "intermediate") {
+      baseScore = 68;
+      evidence.push("Declared as Intermediate in candidate profile");
+    } else if (declaredLevelStr === "beginner") {
+      baseScore = 48;
+      evidence.push("Declared as Beginner in candidate profile");
+    } else {
+      evidence.push("Listed in candidate profile skills");
     }
 
+    // 2. Project Evidence
+    const matchedProjects = projects.filter(p => {
+      const pText = `${p.title || p.project_title || ""} ${p.description || ""} ${Array.isArray(p.technologies) ? p.technologies.join(" ") : String(p.technologies || "")}`.toLowerCase();
+      const pClean = pText.replace(/[^a-z0-9]/g, "");
+      return pText.includes(skillName.toLowerCase()) || (cleanLower.length > 2 && pClean.includes(cleanLower));
+    });
+
+    if (matchedProjects.length > 0) {
+      baseScore += Math.min(15, matchedProjects.length * 8);
+      evidence.push(`Demonstrated in portfolio project(s): ${matchedProjects.map(p => p.title || p.project_title || "Project").slice(0, 2).join(", ")}`);
+    }
+
+    // 3. Internship & Work Experience Evidence
+    const matchedExperience = [...internships, ...experiences].filter(e => {
+      const eText = `${e.role || e.title || ""} ${e.company || ""} ${e.description || ""}`.toLowerCase();
+      const eClean = eText.replace(/[^a-z0-9]/g, "");
+      return eText.includes(skillName.toLowerCase()) || (cleanLower.length > 2 && eClean.includes(cleanLower));
+    });
+
+    if (matchedExperience.length > 0) {
+      baseScore += Math.min(12, matchedExperience.length * 7);
+      evidence.push(`Applied during practical work experience at ${matchedExperience.map(e => e.company || "organization").slice(0, 2).join(", ")}`);
+    }
+
+    // 4. Certification Evidence
+    const matchedCerts = certs.filter(c => {
+      const cText = `${c.name || c.certificate_name || c.title || ""} ${c.platform || ""}`.toLowerCase();
+      const cClean = cText.replace(/[^a-z0-9]/g, "");
+      return cText.includes(skillName.toLowerCase()) || (cleanLower.length > 2 && cClean.includes(cleanLower));
+    });
+
+    if (matchedCerts.length > 0) {
+      baseScore += Math.min(10, matchedCerts.length * 6);
+      evidence.push(`Validated by certification: ${matchedCerts.map(c => c.name || c.certificate_name || "Certificate").slice(0, 2).join(", ")}`);
+    }
+
+    // Cap between 35 and 96
+    const finalScore = Math.max(35, Math.min(96, Math.round(baseScore)));
+
+    let finalLevel = "Developing";
+    if (finalScore >= 80) finalLevel = "Strong";
+    else if (finalScore >= 65) finalLevel = "Intermediate";
+    else if (finalScore >= 45) finalLevel = "Developing";
+    else finalLevel = "Beginner";
+
     return {
-      skill_name: skill.name,
-      proficiency_score,
-      level,
+      skill_name: skillName,
+      proficiency_score: finalScore,
+      level: finalLevel,
       evidence
     };
   });
@@ -668,5 +715,6 @@ module.exports = {
   normalizeConversation,
   normalizeAnalysis,
   normalizeSkill,
-  buildSkillAnalysisPrompts
+  buildSkillAnalysisPrompts,
+  buildLocalSkillAnalysis
 };

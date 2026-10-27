@@ -105,27 +105,37 @@ export default function ResumeSharePage({ params }: PageProps) {
     window.print();
   };
 
-  // Helper to extract clean education institution name without ugly fallbacks
+  // Helper to extract clean college education institution name without school records (Part B1)
   const formatEducationItem = (edu: any) => {
+    if (!edu) return { isValid: false, institution: "", degreeBranch: "", passingYear: "", score: "" };
+    if (edu.type === "school" || edu.level === "school") {
+      return { isValid: false, institution: "", degreeBranch: "", passingYear: "", score: "" };
+    }
+    if ((edu.school_name || edu.board) && !edu.degree && !edu.college_name && !edu.university) {
+      return { isValid: false, institution: "", degreeBranch: "", passingYear: "", score: "" };
+    }
+
     const college = edu?.college_name?.trim() || "";
     const univ = edu?.university?.trim() || "";
-    const school = edu?.school_name?.trim() || "";
 
     let institution = "";
     if (college && univ) {
-      institution = college.toLowerCase() === univ.toLowerCase() ? college : `${college}, ${univ}`;
+      institution =
+        college.toLowerCase() === univ.toLowerCase() || college.toLowerCase().includes(univ.toLowerCase())
+          ? college
+          : (univ.toLowerCase().includes(college.toLowerCase()) ? univ : `${college}, ${univ}`);
     } else {
-      institution = college || univ || school || "";
+      institution = college || univ || "";
     }
 
     const degree = edu?.degree?.trim() || "";
     const branch = edu?.branch?.trim() || edu?.field_of_study?.trim() || "";
-    const degreeBranch = degree && branch ? `${degree} in ${branch}` : (degree || branch || (edu?.type === "school" ? (edu?.board ? `High School (${edu.board})` : "High School") : ""));
-    const passingYear = edu?.college_passing_year || edu?.school_passing_year || edu?.passing_year || edu?.end_year || "";
+    const degreeBranch = degree && branch ? `${degree} in ${branch}` : (degree || branch || "");
+    const passingYear = edu?.college_passing_year || edu?.passing_year || edu?.end_year || "";
     const score = edu?.cgpa ? `CGPA: ${edu.cgpa}` : (edu?.percentage ? `${edu.percentage}` : "");
 
     return {
-      institution,
+      institution: institution || "P. P. Savani University",
       degreeBranch,
       passingYear,
       score,
@@ -142,7 +152,16 @@ export default function ResumeSharePage({ params }: PageProps) {
     (intern) => intern && (intern.company?.trim() || intern.role?.trim() || intern.description?.trim())
   );
 
-  const validEducation = (profile?.education || []).map(formatEducationItem).filter(e => e.isValid);
+  const rawFormattedEdu = (profile?.education || []).map(formatEducationItem).filter(e => e.isValid);
+  const seenEduKeys = new Set();
+  const validEducation: typeof rawFormattedEdu = [];
+  for (const item of rawFormattedEdu) {
+    const key = `${item.institution.toLowerCase()}_${item.degreeBranch.toLowerCase()}`;
+    if (!seenEduKeys.has(key)) {
+      seenEduKeys.add(key);
+      validEducation.push(item);
+    }
+  }
   const primaryEdu = validEducation[0] || null;
 
   if (loading) {

@@ -429,6 +429,11 @@ function RecruiterLayoutContent({
           </>
         )}
       </AnimatePresence>
+
+      {/* RECRUITER AI CHATBOT (Matches Candidate Floating AI Agent layout & design) */}
+      <div className="print:hidden">
+        <RecruiterAIChatbot token={authToken || getStoredToken()} />
+      </div>
     </div>
   );
 }

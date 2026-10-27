@@ -39,41 +39,60 @@ function normalizeProject(project = {}) {
     };
   }
 
+  const title =
+    project.project_title ||
+    project.title ||
+    project.name ||
+    "";
+
+  // Parse technologies if it's a string or array
+  let technologies = project.technologies || project.tech_stack || [];
+  if (typeof technologies === "string") {
+    technologies = technologies.split(",").map(t => t.trim()).filter(Boolean);
+  } else if (!Array.isArray(technologies)) {
+    technologies = [];
+  }
+
+  const githubUrl =
+    project.github_url ||
+    project.github_link ||
+    project.github ||
+    project.repo_url ||
+    project.repository ||
+    "";
+
+  const liveUrl =
+    project.live_url ||
+    project.live_link ||
+    project.demo_url ||
+    project.project_url ||
+    project.url ||
+    "";
+
   return {
-    ...project,
-    project_title:
-      project.project_title ||
-      project.title ||
-      project.name ||
-      "",
+    id: project.id || null,
+    project_title: title,
+    title,
     description:
       project.description ||
       project.project_description ||
       "",
-    technologies:
-      project.technologies ||
-      project.tech_stack ||
-      [],
-    tech_stack:
-      project.tech_stack ||
-      project.technologies ||
-      [],
-    project_url:
-      project.project_url ||
-      project.url ||
-      "",
-    github_url:
-      project.github_url ||
-      project.github ||
-      "",
-    live_url:
-      project.live_url ||
-      project.demo_url ||
-      "",
+    technologies,
+    tech_stack: technologies,
+    project_url: liveUrl || githubUrl,
+    github_url: githubUrl,
+    live_url: liveUrl,
     role: project.role || "",
-    responsibilities:
-      project.responsibilities || [],
-    features: project.features || [],
+    responsibilities: Array.isArray(project.responsibilities)
+      ? project.responsibilities
+      : (typeof project.responsibilities === "string"
+        ? project.responsibilities.split(",").map(s => s.trim()).filter(Boolean)
+        : []),
+    features: Array.isArray(project.features)
+      ? project.features
+      : (typeof project.features === "string"
+        ? project.features.split(",").map(s => s.trim()).filter(Boolean)
+        : []),
     architecture:
       project.architecture || "",
     outcome:
@@ -223,6 +242,91 @@ function normalizeStringArray(value) {
     .filter(Boolean);
 }
 
+function calculateLocalProjectScore(project) {
+  const norm = normalizeProject(project);
+  if (!norm || !norm.project_title) return null;
+
+  // 1. Technical Depth (0 - 100)
+  // Evaluates tech stack, architecture, repository/demo presence, complexity
+  let techScore = 0;
+  const techCount = Array.isArray(norm.technologies) ? norm.technologies.length : 0;
+  if (techCount >= 4) techScore += 35;
+  else if (techCount >= 2) techScore += 25;
+  else if (techCount === 1) techScore += 15;
+
+  if (norm.github_url) techScore += 25;
+  if (norm.live_url) techScore += 15;
+  if (norm.architecture || norm.role || (norm.description && norm.description.length > 200)) techScore += 15;
+  if (Array.isArray(norm.features) && norm.features.length > 0) techScore += 10;
+  techScore = Math.max(30, Math.min(95, techScore));
+
+  // 2. Career Relevance (0 - 100)
+  // Evaluates industry relevance of tech stack, deployment, and practical utility
+  let relScore = 45; // baseline for valid software engineering project
+  const techStr = (Array.isArray(norm.technologies) ? norm.technologies.join(" ") : String(norm.technologies || "")).toLowerCase();
+  const modernTech = ["react", "next", "node", "express", "python", "streamlit", "sql", "postgres", "ai", "machine learning", "typescript", "javascript", "docker", "aws", "tailwind", "fastapi"];
+  const matchedTech = modernTech.filter(t => techStr.includes(t) || norm.description.toLowerCase().includes(t));
+  relScore += Math.min(35, matchedTech.length * 10);
+  if (norm.live_url || norm.github_url) relScore += 15;
+  if (norm.description && (norm.description.toLowerCase().includes("user") || norm.description.toLowerCase().includes("system") || norm.description.toLowerCase().includes("dashboard") || norm.description.toLowerCase().includes("platform"))) relScore += 10;
+  relScore = Math.max(35, Math.min(95, relScore));
+
+  // 3. Description Quality (0 - 100)
+  // Evaluates problem statement, features, structure, clarity
+  let descScore = 25;
+  const descLen = norm.description.trim().length;
+  if (descLen > 300) descScore += 40;
+  else if (descLen > 150) descScore += 25;
+  else if (descLen > 50) descScore += 15;
+
+  if (norm.description.includes("•") || norm.description.includes("-") || norm.description.includes("\n\n")) descScore += 20;
+  if (norm.outcome || norm.description.toLowerCase().includes("impact") || norm.description.toLowerCase().includes("result") || norm.description.toLowerCase().includes("help")) descScore += 20;
+  descScore = Math.max(30, Math.min(95, descScore));
+
+  // Overall Quality: weighted combination
+  const overallQuality = Math.round(0.40 * techScore + 0.35 * relScore + 0.25 * descScore);
+
+  // Suggestions based on actual project evidence:
+  const suggestions = [];
+  if (!norm.github_url && !norm.live_url) {
+    suggestions.push("Add a verifiable GitHub repository link or live demo URL to demonstrate implementation.");
+  } else if (!norm.github_url) {
+    suggestions.push("Link the public GitHub repository to showcase code architecture and git commits.");
+  } else if (!norm.live_url) {
+    suggestions.push("Deploy a live demonstration link for recruiters to interact with the project.");
+  }
+
+  if (techCount < 3) {
+    suggestions.push("Document all specific libraries, frameworks, APIs, and database tools used in the project.");
+  }
+
+  if (descLen < 200) {
+    suggestions.push("Expand the project description with a clear problem statement, technical challenges overcome, and candidate contributions.");
+  }
+
+  if (!norm.description.toLowerCase().includes("result") && !norm.description.toLowerCase().includes("user") && !norm.outcome) {
+    suggestions.push("Highlight measurable impact, performance optimizations, or user adoption metrics.");
+  }
+
+  if (suggestions.length === 0) {
+    suggestions.push("Keep project documentation and tech stack updated with recent feature additions.");
+  }
+
+  return {
+    project_title: norm.project_title,
+    quality_score: overallQuality,
+    technical_depth: techScore,
+    career_relevance: relScore,
+    description_quality: descScore,
+    suggestions: suggestions.slice(0, 3)
+  };
+}
+
+function buildLocalProjectAnalysis(projects) {
+  const normalized = normalizeProjects(projects);
+  return normalized.map(p => calculateLocalProjectScore(p)).filter(Boolean);
+}
+
 function normalizeProjectAnalysis(
   result,
   originalProjects
@@ -230,9 +334,9 @@ function normalizeProjectAnalysis(
   const parsed = extractJsonObject(result);
 
   if (!parsed) {
-    throw new Error(
-      "Project agent returned an invalid structured response."
-    );
+    return {
+      projects: buildLocalProjectAnalysis(originalProjects)
+    };
   }
 
   const analyzedProjects =
@@ -240,12 +344,14 @@ function normalizeProjectAnalysis(
       ? parsed.projects
       : [];
 
-  const originalMap = new Map(
-    originalProjects.map(project => [
-      project.project_title,
-      project
-    ])
-  );
+  const findOriginal = (title) => {
+    const t = String(title || "").trim().toLowerCase();
+    if (!t) return null;
+    return originalProjects.find(op => {
+      const opt = op.project_title.trim().toLowerCase();
+      return opt === t || opt.includes(t) || t.includes(opt);
+    }) || null;
+  };
 
   const normalized = analyzedProjects
     .map(project => {
@@ -266,32 +372,24 @@ function normalizeProjectAnalysis(
         return null;
       }
 
-      const original =
-        originalMap.get(title);
+      const original = findOriginal(title);
 
       if (!original) {
         return null;
       }
 
+      const techDepth = normalizeNumber(project.technical_depth);
+      const careerRel = normalizeNumber(project.career_relevance);
+      const descQual = normalizeNumber(project.description_quality);
+      const qualityScore = normalizeNumber(project.quality_score) || Math.round(0.4 * techDepth + 0.35 * careerRel + 0.25 * descQual);
+
       return {
         project_title:
           original.project_title,
-        quality_score:
-          normalizeNumber(
-            project.quality_score
-          ),
-        technical_depth:
-          normalizeNumber(
-            project.technical_depth
-          ),
-        career_relevance:
-          normalizeNumber(
-            project.career_relevance
-          ),
-        description_quality:
-          normalizeNumber(
-            project.description_quality
-          ),
+        quality_score: qualityScore,
+        technical_depth: techDepth,
+        career_relevance: careerRel,
+        description_quality: descQual,
         suggestions:
           normalizeStringArray(
             project.suggestions
@@ -302,27 +400,21 @@ function normalizeProjectAnalysis(
 
   const analyzedTitles = new Set(
     normalized.map(
-      project => project.project_title
+      project => project.project_title.toLowerCase().trim()
     )
   );
 
   for (const project of originalProjects) {
     if (
       !analyzedTitles.has(
-        project.project_title
+        project.project_title.toLowerCase().trim()
       )
     ) {
-      normalized.push({
-        project_title:
-          project.project_title,
-        quality_score: 0,
-        technical_depth: 0,
-        career_relevance: 0,
-        description_quality: 0,
-        suggestions: [
-          "Insufficient analysis evidence available."
-        ]
-      });
+      // Use grounded local calculation rather than arbitrary 0%
+      const localEval = calculateLocalProjectScore(project);
+      if (localEval) {
+        normalized.push(localEval);
+      }
     }
   }
 
@@ -434,43 +526,6 @@ Preserve project titles exactly.
     systemPrompt,
     userPrompt
   };
-}
-
-function buildLocalProjectAnalysis(projects) {
-  return projects.map(proj => {
-    const techCount = (proj.technologies || proj.tech_stack || []).length;
-    const hasGithub = Boolean(proj.github_url || proj.github || proj.project_url);
-    const hasLive = Boolean(proj.live_url || proj.demo_url);
-    const descLen = (proj.description || "").length;
-
-    const technical_depth = Math.min(95, 50 + techCount * 8 + (hasGithub ? 15 : 0));
-    const description_quality = Math.min(95, Math.max(40, Math.round(descLen / 5)));
-    const career_relevance = Math.min(90, 60 + (techCount > 0 ? 15 : 0) + (hasLive ? 15 : 0));
-    const quality_score = Math.round((technical_depth + description_quality + career_relevance) / 3);
-
-    const suggestions = [];
-    if (!hasGithub && !hasLive) {
-      suggestions.push("Add a repository link or live demo URL to demonstrate implementation.");
-    }
-    if (descLen < 80) {
-      suggestions.push("Expand the project description to include key architecture decisions and quantifiable outcomes.");
-    }
-    if (techCount < 3) {
-      suggestions.push("Specify all frontend, backend, database, and DevOps technologies used.");
-    }
-    if (suggestions.length === 0) {
-      suggestions.push("Highlight production metrics, performance benchmarks, or user scale.");
-    }
-
-    return {
-      project_title: proj.project_title,
-      quality_score,
-      technical_depth,
-      career_relevance,
-      description_quality,
-      suggestions
-    };
-  });
 }
 
 async function analyzeProjects(profile = {}) {
@@ -666,5 +721,7 @@ module.exports = {
   normalizeConversation,
   normalizeProjectAnalysis,
   buildProjectAnalysisPrompts,
-  extractJsonObject
+  extractJsonObject,
+  calculateLocalProjectScore,
+  buildLocalProjectAnalysis
 };

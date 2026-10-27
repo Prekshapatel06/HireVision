@@ -2700,12 +2700,16 @@ function RecruiterDashboardContent() {
 
                   const latestExp =
                     Array.isArray(candidate.experience) && candidate.experience.length > 0
-                      ? candidate.experience[0]
-                      : null;
+                      ? { ...candidate.experience[0], isInternship: false }
+                      : (Array.isArray(candidate.internships) && candidate.internships.length > 0
+                          ? { ...candidate.internships[0], isInternship: true }
+                          : null);
 
                   const primaryEdu =
                     Array.isArray(candidate.education) && candidate.education.length > 0
-                      ? candidate.education[0]
+                      ? (candidate.education.find((e: any) => e.degree && (e.college_name || e.university)) ||
+                         candidate.education.find((e: any) => e.college_name || e.university) ||
+                         candidate.education[0])
                       : null;
 
                   return (
@@ -2889,13 +2893,20 @@ function RecruiterDashboardContent() {
                           </span>
                           {latestExp ? (
                             <div className="p-2.5 bg-white border border-slate-200 rounded-xl space-y-0.5">
-                              <h6 className="font-bold text-xs text-slate-800 line-clamp-1">
-                                {latestExp.role || latestExp.title || "Role"}{" "}
-                                {latestExp.company ? `@ ${latestExp.company}` : ""}
-                              </h6>
-                              {latestExp.joining_date && (
+                              <div className="flex items-center gap-1.5">
+                                <h6 className="font-bold text-xs text-slate-800 line-clamp-1">
+                                  {latestExp.role || latestExp.title || "Role"}{" "}
+                                  {latestExp.company ? `@ ${latestExp.company}` : ""}
+                                </h6>
+                                {latestExp.isInternship && (
+                                  <span className="text-[9px] font-bold bg-emerald-100 text-emerald-800 px-1.5 py-0.2 rounded uppercase shrink-0">
+                                    Internship
+                                  </span>
+                                )}
+                              </div>
+                              {(latestExp.joining_date || latestExp.duration) && (
                                 <p className="text-[10px] text-slate-400 font-semibold">
-                                  {latestExp.joining_date} - {latestExp.ending_date || "Present"}
+                                  {latestExp.joining_date ? `${latestExp.joining_date} - ${latestExp.ending_date || "Present"}` : latestExp.duration}
                                 </p>
                               )}
                             </div>
@@ -2914,11 +2925,11 @@ function RecruiterDashboardContent() {
                           {primaryEdu ? (
                             <div className="p-2.5 bg-white border border-slate-200 rounded-xl text-[11px]">
                               <span className="font-bold text-slate-800 block">
-                                {primaryEdu.degree}
+                                {primaryEdu.degree ? `${primaryEdu.degree}${primaryEdu.branch ? ` in ${primaryEdu.branch}` : ""}` : (primaryEdu.college_name || primaryEdu.university || "Higher Education")}
                               </span>
-                              {primaryEdu.college_name && (
+                              {(primaryEdu.college_name || primaryEdu.university) && (
                                 <span className="text-slate-500 text-[10px] block">
-                                  {primaryEdu.college_name}
+                                  {primaryEdu.college_name || primaryEdu.university}
                                 </span>
                               )}
                             </div>
@@ -4015,24 +4026,44 @@ function RecruiterDashboardContent() {
                     <Briefcase className="h-3.5 w-3.5 text-violet-600" />
                     Work Experience & Internships
                   </h5>
-                  {Array.isArray(profileModalCandidate.experience) && profileModalCandidate.experience.length > 0 ? (
+                  {((Array.isArray(profileModalCandidate.experience) && profileModalCandidate.experience.length > 0) ||
+                    (Array.isArray(profileModalCandidate.internships) && profileModalCandidate.internships.length > 0)) ? (
                     <div className="space-y-2">
-                      {profileModalCandidate.experience.map((exp: any, idx: number) => (
-                        <div key={idx} className="p-3 border border-slate-200 rounded-xl bg-slate-50/50 space-y-0.5">
-                          <h6 className="font-bold text-slate-800">
-                            {exp.role || exp.title} {exp.company ? `@ ${exp.company}` : ""}
-                          </h6>
-                          {exp.joining_date && (
-                            <p className="text-[10px] text-slate-400">
-                              {exp.joining_date} - {exp.ending_date || "Present"}
-                            </p>
-                          )}
-                          {exp.description && <p className="text-slate-600 text-[11px] mt-1">{exp.description}</p>}
-                        </div>
-                      ))}
+                      {Array.isArray(profileModalCandidate.internships) &&
+                        profileModalCandidate.internships.map((intern: any, idx: number) => (
+                          <div key={`intern-${idx}`} className="p-3 border border-emerald-200 rounded-xl bg-emerald-50/40 space-y-0.5">
+                            <div className="flex items-center gap-1.5">
+                              <h6 className="font-bold text-slate-800 text-xs">
+                                {intern.role || intern.title || "Intern"}{intern.company ? ` @ ${intern.company}` : ""}
+                              </h6>
+                              <span className="text-[9px] font-bold bg-emerald-100 text-emerald-800 px-1.5 py-0.2 rounded-full uppercase">
+                                Internship
+                              </span>
+                            </div>
+                            {intern.duration && (
+                              <p className="text-[10px] text-slate-400">{intern.duration}</p>
+                            )}
+                            {intern.description && <p className="text-slate-600 text-[11px] mt-1">{intern.description}</p>}
+                          </div>
+                        ))}
+
+                      {Array.isArray(profileModalCandidate.experience) &&
+                        profileModalCandidate.experience.map((exp: any, idx: number) => (
+                          <div key={`exp-${idx}`} className="p-3 border border-slate-200 rounded-xl bg-slate-50/50 space-y-0.5">
+                            <h6 className="font-bold text-slate-800 text-xs">
+                              {exp.role || exp.title} {exp.company ? `@ ${exp.company}` : ""}
+                            </h6>
+                            {exp.joining_date && (
+                              <p className="text-[10px] text-slate-400">
+                                {exp.joining_date} - {exp.ending_date || "Present"}
+                              </p>
+                            )}
+                            {exp.description && <p className="text-slate-600 text-[11px] mt-1">{exp.description}</p>}
+                          </div>
+                        ))}
                     </div>
                   ) : (
-                    <p className="text-slate-400 italic">No professional experience listed.</p>
+                    <p className="text-slate-400 italic text-xs">No professional experience or internships listed.</p>
                   )}
                 </div>
 
@@ -4042,25 +4073,43 @@ function RecruiterDashboardContent() {
                     <GraduationCap className="h-3.5 w-3.5 text-blue-600" />
                     Education
                   </h5>
-                  {Array.isArray(profileModalCandidate.education) && profileModalCandidate.education.length > 0 ? (
-                    <div className="space-y-2">
-                      {profileModalCandidate.education.map((edu: any, idx: number) => (
-                        <div key={idx} className="p-3 border border-slate-200 rounded-xl bg-slate-50/50">
-                          <span className="font-bold text-slate-800">{edu.degree}</span>
-                          {edu.college_name && (
-                            <span className="text-slate-500"> • {edu.college_name}</span>
-                          )}
-                          {edu.college_passing_year && (
-                            <span className="text-slate-400 text-[10px] block mt-0.5">
-                              Class of {edu.college_passing_year}
-                            </span>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <p className="text-slate-400 italic">No formal education listed.</p>
-                  )}
+                  {(() => {
+                    const validEdus = (Array.isArray(profileModalCandidate.education) ? profileModalCandidate.education : []).filter((edu: any) => {
+                      if (!edu) return false;
+                      const inst = edu.college_name || edu.university || edu.school_name || edu.institution;
+                      return Boolean(inst || edu.degree);
+                    });
+
+                    if (validEdus.length === 0) {
+                      return <p className="text-slate-400 italic text-xs">No formal education listed.</p>;
+                    }
+
+                    return (
+                      <div className="space-y-2">
+                        {validEdus.map((edu: any, idx: number) => {
+                          const college = edu.college_name?.trim() || "";
+                          const univ = edu.university?.trim() || "";
+                          const inst = college && univ ? (college.toLowerCase() === univ.toLowerCase() ? college : `${college}, ${univ}`) : (college || univ || edu.school_name || "");
+                          const degree = edu.degree ? `${edu.degree}${edu.branch ? ` in ${edu.branch}` : ""}` : (edu.school_name ? `School (${edu.board || "Secondary"})` : "");
+
+                          return (
+                            <div key={idx} className="p-3 border border-slate-200 rounded-xl bg-slate-50/50">
+                              {degree && <span className="font-bold text-slate-800 block text-xs">{degree}</span>}
+                              {inst && (
+                                <span className="text-slate-500 text-xs">{inst}</span>
+                              )}
+                              {(edu.college_passing_year || edu.school_passing_year || edu.end_year) && (
+                                <span className="text-slate-400 text-[10px] block mt-0.5">
+                                  Class of {edu.college_passing_year || edu.school_passing_year || edu.end_year}
+                                  {edu.cgpa ? ` • CGPA: ${edu.cgpa}` : (edu.percentage ? ` • ${edu.percentage}` : "")}
+                                </span>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    );
+                  })()}
                 </div>
               </div>
 

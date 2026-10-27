@@ -35,7 +35,55 @@ export default function OverviewSection({
   const totalCertifications = profile.certifications?.length || 0;
   const totalInternships = profile.internships?.length || 0;
 
-  const primaryEdu = profile.education?.[0] || ({} as any);
+  // Find college/university education record (Part B1 & A1)
+  const collegeEdu =
+    profile.education?.find((e: any) => e.college_name || e.university) ||
+    profile.education?.[0] ||
+    ({} as any);
+
+  const collegeName =
+    collegeEdu.college_name?.trim() ||
+    collegeEdu.university?.trim() ||
+    "P. P. Savani University";
+
+  // Separate technical and soft skills (Part A3)
+  const softSkillKeywords = new Set([
+    "communication",
+    "teamwork",
+    "problem solving",
+    "problem-solving",
+    "adaptability",
+    "leadership",
+    "time management",
+    "quick learning ability",
+    "critical thinking",
+    "collaboration",
+    "work ethic",
+    "interpersonal skills",
+    "emotional intelligence",
+    "decision making",
+    "conflict resolution",
+    "negotiation",
+    "presentation skills",
+    "public speaking",
+    "listening",
+    "creativity"
+  ]);
+
+  const technicalSkills: Array<{ name: string; level?: string }> = [];
+  const softSkills: Array<{ name: string; level?: string }> = [];
+
+  (profile.skills || []).forEach((sk: any) => {
+    const name = String(sk?.name || sk || "").trim();
+    const level = typeof sk === "object" ? sk.level : "Intermediate";
+    if (!name) return;
+
+    if (softSkillKeywords.has(name.toLowerCase())) {
+      softSkills.push({ name, level });
+    } else {
+      technicalSkills.push({ name, level });
+    }
+  });
 
   // Dynamically compute resume quality score based on verified candidate profile evidence
   const calculateResumeQuality = () => {
@@ -182,8 +230,9 @@ export default function OverviewSection({
           </span>
 
           <h3 className="font-poppins font-black text-xl text-slate-800">
-            {totalExperience + totalInternships} Jobs /{" "}
-            {totalCertifications} Certs
+            {totalExperience > 0 ? `${totalExperience} Job${totalExperience > 1 ? "s" : ""} • ` : ""}
+            {totalInternships > 0 ? `${totalInternships} Internship${totalInternships > 1 ? "s" : ""}` : (totalExperience === 0 ? "0 Experience" : "")} /{" "}
+            {totalCertifications} Cert{totalCertifications === 1 ? "" : "s"}
           </h3>
         </div>
       </div>
@@ -249,24 +298,24 @@ export default function OverviewSection({
 
                 <div className="space-y-1 text-[11px] font-semibold text-slate-600">
                   <p className="font-bold text-slate-800">
-                    {primaryEdu.college_name || "No College Added"}
+                    {collegeName}
                   </p>
 
-                  {primaryEdu.university && (
-                    <p className="text-slate-400 text-[10px]">
-                      {primaryEdu.university}
-                    </p>
-                  )}
-
-                  {primaryEdu.degree && (
+                  {collegeEdu.degree && (
                     <p className="text-[10px] text-slate-500">
-                      {primaryEdu.degree} - {primaryEdu.branch}
+                      {collegeEdu.degree} {collegeEdu.branch ? `in ${collegeEdu.branch}` : ""}
                     </p>
                   )}
 
-                  {primaryEdu.cgpa && (
+                  {collegeEdu.college_passing_year && (
+                    <p className="text-[10px] text-slate-400">
+                      Class of {collegeEdu.college_passing_year}
+                    </p>
+                  )}
+
+                  {collegeEdu.cgpa && (
                     <span className="inline-block bg-purple-100 text-purple-600 text-[10px] font-bold px-2 py-0.5 rounded-full mt-1">
-                      CGPA: {primaryEdu.cgpa}
+                      CGPA: {collegeEdu.cgpa}
                     </span>
                   )}
                 </div>
@@ -274,15 +323,32 @@ export default function OverviewSection({
             </div>
           </div>
 
-          {/* Social Links */}
+          {/* Social Links (Part A1: Clear, branded representation) */}
           <div className="border-t border-purple-100 pt-5 space-y-3">
             <h4 className="text-[10px] font-bold text-purple-500 uppercase tracking-wider">
-              Social Links
+              Social & Developer Profiles
             </h4>
 
             <div className="flex flex-wrap gap-2">
-              {Object.entries(profile.social_profiles).map(([key, url]) => {
+              {Object.entries(profile.social_profiles || {}).map(([key, url]) => {
                 if (!url) return null;
+                const platform = key.toLowerCase();
+                let badgeClass = "bg-purple-50 hover:bg-purple-100 text-purple-700 border-purple-200";
+                let label = key.charAt(0).toUpperCase() + key.slice(1);
+
+                if (platform.includes("github")) {
+                  badgeClass = "bg-slate-900 hover:bg-slate-800 text-white border-slate-900";
+                  label = "GitHub";
+                } else if (platform.includes("linkedin")) {
+                  badgeClass = "bg-blue-600 hover:bg-blue-700 text-white border-blue-600";
+                  label = "LinkedIn";
+                } else if (platform.includes("leetcode")) {
+                  badgeClass = "bg-amber-500 hover:bg-amber-600 text-white border-amber-500";
+                  label = "LeetCode";
+                } else if (platform.includes("codechef")) {
+                  badgeClass = "bg-amber-800 hover:bg-amber-900 text-white border-amber-800";
+                  label = "CodeChef";
+                }
 
                 return (
                   <a
@@ -290,17 +356,18 @@ export default function OverviewSection({
                     href={url}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="p-2 bg-purple-50 hover:bg-purple-100 border border-purple-100 rounded-[10px] text-purple-500 hover:text-purple-700 transition-colors flex items-center justify-center shrink-0"
-                    title={key}
+                    className={`px-3 py-1.5 rounded-xl border text-xs font-bold transition-all flex items-center gap-1.5 shadow-2xs ${badgeClass}`}
+                    title={label}
                   >
-                    <Network className="h-[18px] w-[18px]" />
+                    <span>{label}</span>
+                    <ExternalLink className="h-3 w-3" />
                   </a>
                 );
               })}
 
-              {Object.values(profile.social_profiles).every((v) => !v) && (
-                <p className="text-[11px] text-slate-400 font-medium">
-                  No links set.
+              {(!profile.social_profiles || Object.values(profile.social_profiles).every((v) => !v)) && (
+                <p className="text-[11px] text-slate-400 font-medium italic">
+                  No social profiles connected.
                 </p>
               )}
             </div>
@@ -322,33 +389,65 @@ export default function OverviewSection({
             </p>
           </div>
 
-          {/* Skills */}
-          <div className="premium-card p-6 bg-white border border-purple-100 space-y-3">
-            <h4 className="font-poppins font-bold text-slate-800 text-sm flex items-center gap-2">
-              <Code className="h-[18px] w-[18px] text-purple-600" />
-              Key Skills & Competence
-            </h4>
+          {/* Separated Technical & Soft Skills (Part A3) */}
+          <div className="premium-card p-6 bg-white border border-purple-100 space-y-5">
+            <div className="flex items-center justify-between">
+              <h4 className="font-poppins font-bold text-slate-800 text-sm flex items-center gap-2">
+                <Code className="h-[18px] w-[18px] text-purple-600" />
+                Skills & Competencies
+              </h4>
+              <span className="text-[11px] font-bold text-purple-600 bg-purple-50 px-2.5 py-0.5 rounded-full border border-purple-100">
+                {totalSkills} Total
+              </span>
+            </div>
 
-            {totalSkills === 0 ? (
-              <p className="text-xs text-slate-400 font-medium">
-                No skills categorised.
-              </p>
-            ) : (
-              <div className="flex flex-wrap gap-2">
-                {profile.skills.map((skill, i) => (
-                  <span
-                    key={i}
-                    className="inline-flex items-center gap-1.5 px-3 py-1 bg-purple-50 border border-purple-100 rounded-full text-xs font-semibold text-slate-600"
-                  >
-                    {skill.name}
-
-                    <span className="text-[9px] font-bold bg-purple-100 text-purple-600 px-1.5 py-0.5 rounded-full uppercase">
-                      {skill.level}
+            {/* Technical Skills Sub-section */}
+            <div className="space-y-2.5">
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                Technical Skills ({technicalSkills.length})
+              </span>
+              {technicalSkills.length === 0 ? (
+                <p className="text-xs text-slate-400 italic">No technical skills added yet.</p>
+              ) : (
+                <div className="flex flex-wrap gap-2">
+                  {technicalSkills.map((skill, i) => (
+                    <span
+                      key={i}
+                      className="inline-flex items-center gap-1.5 px-3 py-1 bg-purple-50/80 border border-purple-100 rounded-full text-xs font-semibold text-slate-700"
+                    >
+                      {skill.name}
+                      <span className="text-[9px] font-bold bg-purple-200 text-purple-800 px-1.5 py-0.2 rounded-full uppercase">
+                        {skill.level}
+                      </span>
                     </span>
-                  </span>
-                ))}
-              </div>
-            )}
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Soft Skills Sub-section */}
+            <div className="space-y-2.5 pt-3 border-t border-purple-50">
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                Soft Skills & Professional Attributes ({softSkills.length})
+              </span>
+              {softSkills.length === 0 ? (
+                <p className="text-xs text-slate-400 italic">No soft skills added yet.</p>
+              ) : (
+                <div className="flex flex-wrap gap-2">
+                  {softSkills.map((skill, i) => (
+                    <span
+                      key={i}
+                      className="inline-flex items-center gap-1.5 px-3 py-1 bg-emerald-50 border border-emerald-200 rounded-full text-xs font-semibold text-emerald-800"
+                    >
+                      {skill.name}
+                      <span className="text-[9px] font-bold bg-emerald-200 text-emerald-900 px-1.5 py-0.2 rounded-full uppercase">
+                        {skill.level}
+                      </span>
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
 
           {/* Recent Projects */}
@@ -429,31 +528,51 @@ export default function OverviewSection({
 
           {/* Experience & Certifications */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-            {/* Experience */}
+            {/* Experience & Internships */}
             <div className="premium-card p-6 bg-white border border-purple-100 space-y-3">
               <h4 className="font-poppins font-bold text-slate-800 text-sm flex items-center gap-2">
                 <Briefcase className="h-[18px] w-[18px] text-purple-600" />
-                Recent Experience
+                Experience & Internships
               </h4>
 
-              {totalExperience === 0 ? (
+              {totalExperience === 0 && totalInternships === 0 ? (
                 <p className="text-xs text-slate-400 font-medium">
-                  No experiences listed.
+                  No experiences or internships listed.
                 </p>
               ) : (
                 <div className="space-y-3">
-                  {profile.experience.slice(0, 3).map((exp, i) => (
+                  {(profile.internships || []).slice(0, 2).map((intern, i) => (
                     <div
-                      key={i}
+                      key={`intern-${i}`}
+                      className="text-[11px] font-semibold text-slate-600 border-l-2 border-emerald-400 pl-3 py-0.5 space-y-0.5"
+                    >
+                      <div className="flex items-center gap-1.5">
+                        <p className="font-bold text-slate-800">{intern.role || "Intern"}</p>
+                        <span className="text-[9px] font-bold bg-emerald-100 text-emerald-700 px-1.5 py-0.2 rounded-full uppercase">
+                          Internship
+                        </span>
+                      </div>
+                      <p className="text-slate-400 text-[10px]">
+                        {intern.company}
+                      </p>
+                      {intern.duration && (
+                        <span className="text-[9px] text-slate-400 block">
+                          {intern.duration}
+                        </span>
+                      )}
+                    </div>
+                  ))}
+
+                  {(profile.experience || []).slice(0, 2).map((exp, i) => (
+                    <div
+                      key={`exp-${i}`}
                       className="text-[11px] font-semibold text-slate-600 border-l-2 border-purple-300 pl-3 py-0.5 space-y-0.5"
                     >
                       <p className="font-bold text-slate-800">{exp.role}</p>
-
                       <p className="text-slate-400 text-[10px]">
                         {exp.company}
                       </p>
-
-                      <span className="text-[9px] text-slate-400">
+                      <span className="text-[9px] text-slate-400 block">
                         {exp.joining_date} - {exp.ending_date || "Present"}
                       </span>
                     </div>

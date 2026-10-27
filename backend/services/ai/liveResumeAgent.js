@@ -98,16 +98,17 @@ function getExperienceCompany(item) {
 function getEducationInstitution(item) {
   const college = cleanText(item?.college_name);
   const univ = cleanText(item?.university);
-  const school = cleanText(item?.school_name);
-  const inst = cleanText(item?.institution);
 
   if (college && univ) {
-    if (college.toLowerCase() === univ.toLowerCase()) {
+    if (college.toLowerCase() === univ.toLowerCase() || college.toLowerCase().includes(univ.toLowerCase())) {
       return college;
+    }
+    if (univ.toLowerCase().includes(college.toLowerCase())) {
+      return univ;
     }
     return `${college}, ${univ}`;
   }
-  return college || univ || school || inst || "";
+  return college || univ || "";
 }
 
 function buildDeterministicResume(profileInput) {
@@ -246,13 +247,33 @@ function buildDeterministicResume(profileInput) {
     );
   }
 
-  const validEducation = profile.education.filter((item) => {
-    return Boolean(
-      getEducationInstitution(item) ||
-      cleanText(item?.degree) ||
-      cleanText(item?.branch)
-    );
-  });
+  // Filter to college/university education only (excluding school-level records per Part B1)
+  const isCollegeRecord = (item) => {
+    if (!item) return false;
+    if (item.type === "college" || item.level === "college" || item.level === "university") return true;
+    if (item.type === "school" || item.level === "school") return false;
+    // Check if college/university name or higher education degree exists
+    const inst = getEducationInstitution(item);
+    const deg = cleanText(item.degree);
+    if (inst || deg) {
+      return true;
+    }
+    return false;
+  };
+
+  const rawCollegeEdu = profile.education.filter(isCollegeRecord);
+  // Deduplicate college education by degree and institution
+  const seenEdu = new Set();
+  const validEducation = [];
+  for (const item of rawCollegeEdu) {
+    const inst = getEducationInstitution(item);
+    const deg = cleanText(item.degree);
+    const key = `${deg.toLowerCase()}_${inst.toLowerCase()}`;
+    if (!seenEdu.has(key) && (inst || deg)) {
+      seenEdu.add(key);
+      validEducation.push(item);
+    }
+  }
 
   if (validEducation.length > 0) {
     sections.push(
@@ -269,7 +290,6 @@ function buildDeterministicResume(profileInput) {
             const start = cleanText(item.start_year || item.start_date);
             const end = cleanText(
               item.college_passing_year ||
-                item.school_passing_year ||
                 item.end_year ||
                 item.passing_year ||
                 item.end_date
@@ -291,7 +311,7 @@ function buildDeterministicResume(profileInput) {
 
             const scoreText = score ? ` • ${score}` : "";
 
-            return `- **${field || "Education"}**${institutionText}${period}${scoreText}`;
+            return `- **${field || "Higher Education"}**${institutionText}${period}${scoreText}`;
           })
           .join("\n"),
       ].join("\n")
@@ -754,4 +774,5 @@ module.exports = {
   generateLiveResume,
   generateAndStore,
   handleQuery,
+  buildDeterministicResume,
 };

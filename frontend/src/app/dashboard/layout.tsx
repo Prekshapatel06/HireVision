@@ -279,9 +279,9 @@ function DashboardLayoutContent({
     navItems[0];
 
   return (
-    <div className="min-h-screen bg-slate-50 flex text-slate-800 font-inter">
+    <div className="min-h-screen bg-slate-50 flex text-slate-800 font-inter print:bg-white print:block">
       {/* DESKTOP SIDEBAR */}
-      <aside className="hidden md:flex flex-col w-80 fixed top-0 bottom-0 left-0 z-40 bg-white border-r border-slate-200/80 px-6 py-7 overflow-y-auto">
+      <aside className="hidden md:flex flex-col w-80 fixed top-0 bottom-0 left-0 z-40 bg-white border-r border-slate-200/80 px-6 py-7 overflow-y-auto print:hidden">
         {/* LOGO */}
         <Link
           href="/dashboard"
@@ -379,9 +379,9 @@ function DashboardLayoutContent({
       </aside>
 
       {/* MAIN CONTENT */}
-      <div className="flex-1 md:pl-80 flex flex-col min-h-screen">
+      <div className="flex-1 md:pl-80 flex flex-col min-h-screen print:pl-0 print:m-0 print:block">
         {/* TOP HEADER */}
-        <header className="sticky top-0 z-35 bg-white/80 backdrop-blur-md border-b border-slate-200/60 px-6 md:px-8 py-4 flex items-center justify-between">
+        <header className="sticky top-0 z-35 bg-white/80 backdrop-blur-md border-b border-slate-200/60 px-6 md:px-8 py-4 flex items-center justify-between print:hidden">
           <div className="flex items-center gap-4">
             <button
               onClick={() => setMobileOpen(true)}
@@ -413,7 +413,7 @@ function DashboardLayoutContent({
         </header>
 
         {/* PAGE CONTENT */}
-        <main className="flex-1 p-6 md:p-8">
+        <main className="flex-1 p-6 md:p-8 print:p-0 print:m-0">
           {children}
         </main>
       </div>
@@ -546,11 +546,13 @@ function DashboardLayoutContent({
         )}
       </AnimatePresence>
 
-      {/* AI AGENT */}
-      <FloatingAIAgent
-        profile={profile}
-        token={authToken || getStoredToken()}
-      />
+      {/* AI AGENT (Hidden during print / PDF export) */}
+      <div className="print:hidden">
+        <FloatingAIAgent
+          profile={profile}
+          token={authToken || getStoredToken()}
+        />
+      </div>
     </div>
   );
 }
